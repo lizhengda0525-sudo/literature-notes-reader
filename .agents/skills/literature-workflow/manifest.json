@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "skill": "literature-workflow",
+  "files": [
+    {
+      "path": "agents/openai.yaml",
+      "sha256": "2131f509155f3cca5b896bfbe50e5086b8e56ef85d208f7ef31396d54964a45f"
+    },
+    {
+      "path": "licenses/Delores-MIT.txt",
+      "sha256": "f8a81f5804520f36eb01a68b39cf5e10c0c2276d363cf448882f374687cc6e0e"
+    },
+    {
+      "path": "licenses/K-Dense-MIT.txt",
+      "sha256": "09b02a3c9df3053c55531d503357a9c7cde275970e6c3ceaa1ddf5f0e90b40c1"
+    },
+    {
+      "path": "references/appraisal.md",
+      "sha256": "40f3e25c55daca480da718eea1c3d6c3f7b573e158d6f6c20c54aa52710a9391"
+    },
+    {
+      "path": "references/commands.md",
+      "sha256": "fa4870baeef841ded9aca5235f0845bab519fb44e2797a6667b8031e657933d1"
+    },
+    {
+      "path": "references/maintenance.md",
+      "sha256": "a0b5cb4432bc882ab81684dff4ccc5de7450e6920a468269828843326f6d2b87"
+    },
+    {
+      "path": "references/reading.md",
+      "sha256": "15632ad2dbf6a15b5153bb740a303c522c6dc6c6370b6d6a96843ac2d2db5f64"
+    },
+    {
+      "path": "references/search-and-citations.md",
+      "sha256": "e91d2edfa2faeb20582b85f29569d696bd610e47b1998d5b8ec44a73bf798dba"
+    },
+    {
+      "path": "references/synthesis-and-ideas.md",
+      "sha256": "e1466d624cd4a929b8aed3b4bd41a0a9811bb3165a11ccad6b1b8fa8d85e6e59"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "0566d55c6d1d22221dffaad39ed05c7bf461ae8fd6f620bba948d21706079803"
+    },
+    {
+      "path": "sources.json",
+      "sha256": "73c376c2ed80ba673412d738088963ebc51f52f1d070809f85270e6911b8ebdc"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "name": "文献阅读",
+  "timezone": "Asia/Shanghai",
+  "reading_mode": "autonomous",
+  "required_note_sections": [
+    "一句话定位",
+    "研究问题与假设",
+    "方法拆解",
+    "实验与证据",
+    "结论与局限",
+    "与本课题的关系",
+    "原文证据",
+    "我的想法与疑问",
+    "下一步"
+  ],
+  "zotero": {
+    "mode": "local_read_only",
+    "package": "zotero-mcp-server",
+    "version": "0.15.1"
+  },
+  "catalog": "00_project/catalog.md",
+  "source_list": "00_project/sources.md",
+  "machine_catalog": "90_system/index/catalog.json",
+  "primary_skill": {
+    "name": "literature-workflow",
+    "path": ".agents/skills/literature-workflow",
+    "native_path": ".agents/skills/literature-workflow"
+  }
+}

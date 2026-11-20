@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "skill": "literature-workflow",
+  "adaptation": "项目流程与按需参考由来源方法重新组织；不包含上游完整工具包。",
+  "derived_from": [
+    {
+      "name": "paper-close-reading",
+      "repository": "https://github.com/Delores-Lin/paper-close-reading",
+      "commit": "09adf2697977737c16a8194d71630983921340fb",
+      "source_path": "SKILL.md",
+      "source_git_blob_sha": "e14385b7f19227e59cde3c7a19220f7ded6640b1",
+      "license": "licenses/Delores-MIT.txt"
+    },
+    {
+      "name": "scientific-critical-thinking",
+      "repository": "https://github.com/K-Dense-AI/scientific-agent-skills",
+      "commit": "593377bb048752abb0152deab9fbb1083a6087df",
+      "source_path": "SKILL.md",
+      "source_git_blob_sha": "2a2fc151b5b13e4e11ece7410f21a14d5b25e30d",
+      "license": "licenses/K-Dense-MIT.txt"
+    },
+    {
+      "name": "literature-review",
+      "repository": "https://github.com/K-Dense-AI/scientific-agent-skills",
+      "commit": "593377bb048752abb0152deab9fbb1083a6087df",
+      "source_path": "SKILL.md",
+      "source_git_blob_sha": "5178dce6419cee412155e7b9dd523d5b2ef703f5",
+      "license": "licenses/K-Dense-MIT.txt"
+    },
+    {
+      "name": "citation-management",
+      "repository": "https://github.com/K-Dense-AI/scientific-agent-skills",
+      "commit": "593377bb048752abb0152deab9fbb1083a6087df",
+      "source_path": "SKILL.md",
+      "source_git_blob_sha": "b63b589d4d423969a63e032e62c2b74969147c1c",
+      "license": "licenses/K-Dense-MIT.txt"
+    },
+    {
+      "name": "hypothesis-generation",
+      "repository": "https://github.com/K-Dense-AI/scientific-agent-skills",
+      "commit": "593377bb048752abb0152deab9fbb1083a6087df",
+      "source_path": "SKILL.md",
+      "source_git_blob_sha": "cac00e1e0980402f14722af084e9305fdf965a57",
+      "license": "licenses/K-Dense-MIT.txt"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>精读笔记库</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="/assets/reader.css">
+  <link rel="stylesheet" href="/assets/desktop.css">
+  <script defer src="/assets/vendor/katex/katex.min.js"></script>
+  <script defer src="/assets/vendor/dompurify/purify.min.js"></script>
+  <script type="module" src="/assets/reader.mjs"></script>
+  <script type="module" src="/assets/desktop-ui.mjs"></script>
+</head>
+<body>
+<header class="app-bar">
+  <div class="brand"><span class="book-mark" aria-hidden="true"></span><h1>精读笔记库</h1></div>
+  <div class="workspace-tools"></div>
+  <div class="reader-tools">
+    <button id="focus-reading" aria-pressed="false">专注阅读</button>
+    <button id="reading-settings" title="阅读设置"><span aria-hidden="true">Aa</span> 阅读设置</button>
+    <button id="refresh" title="重新读取本地笔记"><span aria-hidden="true">↻</span> 刷新</button>
+  </div>
+</header>
+<main>
+  <aside class="library" id="library" aria-label="全部论文笔记">
+    <div class="library-head"><h2>论文库</h2><span id="library-count"></span><button id="library-back">返回笔记</button></div>
+    <div class="library-tools">
+      <label class="search-field"><span aria-hidden="true" class="lens"></span><input id="library-search" type="search" aria-label="搜索论文与笔记" placeholder="搜索题名、作者、笔记…"><kbd>/</kbd></label>
+      <details id="filter-panel">
+        <summary>筛选论文<span id="filter-count"></span></summary>
+        <div class="filters">
+          <label>阅读状态<select id="status-filter"><option value="">全部状态</option><option value="queued">待阅读</option><option value="skimmed">已速读</option><option value="deep_read">已精读</option><option value="skipped">已跳过</option></select></label>
+          <label>研究问题<select id="rq-filter"><option value="">全部问题</option></select></label>
+          <label>方法标签<select id="tag-filter"><option value="">全部标签</option></select></label>
+        </div>
+      </details>
+    </div>
+    <nav id="paper-list" class="paper-list" aria-label="论文列表"></nav>
+    <div id="no-papers" class="empty" hidden><p id="empty-message"></p><button id="reset-filters">清除搜索和筛选</button></div>
+    <div class="library-foot"><span class="local-dot"></span> 本地文献工作区</div>
+  </aside>
+  <section class="note-pane" aria-label="当前精读笔记">
+    <div class="note-toolbar">
+      <button id="library-toggle" aria-controls="library" aria-expanded="false">论文库</button>
+      <div class="segmented"><button id="mode-read" class="active" aria-pressed="true">精读笔记</button><button id="mode-source" aria-pressed="false">Markdown</button></div>
+      <select id="outline-select" aria-label="跳到笔记章节"><option value="">本篇目录</option></select>
+      <div class="actions"><button id="open-note" disabled>打开本地 MD ↗</button></div>
+    </div>
+    <div class="progress-track" aria-hidden="true"><div id="progress-fill"></div></div>
+    <div id="note-scroll" tabindex="0" aria-label="笔记正文">
+      <div id="empty-reading" hidden>当前项目还没有论文笔记。</div>
+      <div id="reading-page" hidden>
+        <div class="reading-heading">
+          <div class="paper-kicker"><span id="paper-id"></span><span id="paper-edition"></span></div>
+          <h2 id="paper-title"></h2>
+          <p id="paper-byline"></p><p id="paper-journal"></p>
+          <div class="heading-actions"><a id="zotero-link" hidden></a><button id="show-evidence">原文证据</button><button id="show-details" aria-expanded="false" aria-controls="paper-meta">论文信息</button></div>
+          <p id="zotero-status" hidden></p>
+          <div id="paper-meta" hidden></div>
+        </div>
+        <div id="note-content"></div><pre id="markdown-source" hidden></pre>
+      </div>
+    </div>
+    <footer><span id="note-path"></span><span id="view-status" role="status"></span></footer>
+  </section>
+  <aside class="outline-pane" aria-label="阅读导航">
+    <div class="outline-head"><h2>本篇目录</h2><span id="scroll-percent"></span></div>
+    <nav id="outline" aria-label="笔记章节"></nav>
+    <section id="page-map" hidden>
+      <div class="map-head"><h2>证据分布</h2><select id="map-version" aria-label="证据图的原文版本"></select></div>
+      <div id="map-bars" aria-label="按 PDF 物理页统计证据"></div>
+      <div class="map-axis"><span>PDF 第 1 页</span><span id="map-last"></span></div>
+    </section>
+  </aside>
+</main>
+<dialog id="evidence-dialog" aria-labelledby="evidence-title">
+  <div class="dialog-heading"><div><span id="evidence-paper" class="mono"></span><h2 id="evidence-title">原文证据</h2></div><button id="close-evidence" autofocus>关闭</button></div>
+  <p id="evidence-context"></p><ol id="evidence-rows"></ol>
+</dialog>
+<dialog id="settings-dialog" aria-labelledby="settings-title">
+  <h2 id="settings-title">阅读设置</h2>
+  <label>正文字号 <output id="font-value" for="font-size"></output><input id="font-size" type="range" min="13" max="24" value="16"></label>
+  <label>正文宽度 <select id="width-setting"><option value="normal">舒适</option><option value="wide">宽屏</option></select></label>
+  <div class="dialog-actions"><button id="close-settings">完成</button></div>
+</dialog>
+<div id="notice" role="status" hidden></div>
+</body>
+</html>

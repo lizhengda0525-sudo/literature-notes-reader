@@ -1,0 +1,13 @@
+.tmp/
+.venv/
+__pycache__/
+*.pyc
+.env*
+*.pdf
+00_project/
+10_inbox/
+20_papers/
+30_reviews/
+40_ideas/
+90_system/desktop/releases/
+90_system/index/

@@ -1,0 +1,3 @@
+# Fixed project dependencies; the transitive hash lock is generated on successful setup.
+zotero-mcp-server==0.15.1
+pypdf==6.10.2

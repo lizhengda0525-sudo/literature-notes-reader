@@ -1,0 +1,31 @@
+#recent-projects {max-width:140px}
+#project-name {font-size:11px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desktop-app #mode-source {display:none}
+#save-note {background:var(--green);color:white}
+#save-note:disabled {background:#ecf0e8;color:#526459}
+#save-status {color:var(--green);white-space:nowrap}
+#save-status.dirty {color:var(--amber)}
+#editor-panel {flex:1;min-height:0;display:flex;flex-direction:column}
+.editor-tools,#desktop-banner,#recovery-banner {flex:none;padding:8px 18px;font-size:12px;background:#eaf0e5;border-bottom:1px solid var(--line)}
+.editor-tools,#recovery-banner {display:flex;align-items:center;gap:8px}
+.editor-tools {justify-content:space-between}
+#desktop-banner[data-kind=warning] {background:#fff2db;color:#714c1b}
+#editor-split {display:grid;grid-template-columns:minmax(0,1fr);flex:1;min-height:0}
+#editor-split.has-preview {grid-template-columns:repeat(2,minmax(0,1fr))}
+#note-editor {width:100%;height:100%;resize:none;border:0;padding:18px;background:var(--paper);color:var(--ink);font:14px/1.8 var(--mono),"Microsoft YaHei",monospace;tab-size:2}
+#edit-preview {overflow:auto;padding:18px;border-left:1px solid var(--line);margin:0}
+#edit-preview img {max-width:100%}
+#welcome-panel {text-align:center;padding:50px 10px}
+#welcome-panel h2 {font:500 28px var(--serif)}
+#welcome-panel p {color:var(--muted)}
+#conflict-dialog {width:min(1060px,94vw)}
+.conflict-columns {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.conflict-columns textarea {width:100%;height:45vh;resize:vertical;background:#fafaf4;border:1px solid var(--line);padding:10px;font:13px/1.7 var(--mono)}
+#validation-errors {white-space:pre-wrap;max-height:52vh;overflow:auto}
+#image-dialog {width:auto;max-height:95vh}
+#image-dialog img {display:block;max-width:80vw;max-height:78vh;margin-top:12px}
+@media(max-width:1100px){
+ #project-name {display:none}
+ #editor-split.has-preview {grid-template-columns:minmax(0,1fr);grid-template-rows:1fr 1fr}
+ #edit-preview {border-left:0;border-top:1px solid var(--line)}
+}
