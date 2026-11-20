@@ -793,10 +793,6 @@ def parser():
     for name in ("index", "check"):
         sub.add_parser(name)
     s = sub.add_parser("doctor"); s.add_argument("--probe-zotero", action="store_true")
-    s = sub.add_parser("reader")
-    s.add_argument("paper_id", nargs="?")
-    s.add_argument("--port", type=int, default=8765)
-    s.add_argument("--no-browser", action="store_true")
     for kind in ("review", "idea"):
         s = sub.add_parser(kind)
         actions = s.add_subparsers(dest="action", required=True)
@@ -837,13 +833,6 @@ def main(argv=None):
             result = ws.check()
         elif command == "doctor":
             result = ws.doctor(args.probe_zotero)
-        elif command == "reader":
-            if not 1 <= args.port <= 65535:
-                raise WorkspaceError("Port must be 1..65535.")
-            if args.paper_id:
-                ws.paper(args.paper_id)
-            from reader import serve
-            result = serve(ws.root, args.paper_id, args.port, not args.no_browser)
         elif command in ("review", "idea"):
             result = (ws.new_artifact(command, args.title, args.papers,
                       getattr(args, "question", None), getattr(args, "reviews", []))

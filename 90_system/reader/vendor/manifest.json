@@ -18,5 +18,11 @@
     "source": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.18.tgz",
     "license": "(MPL-2.0 OR Apache-2.0)",
     "tarball_sha256": "8b86f79c6481fec23dd81d4de32179422668912ed033c0c47e786a6e70cb3379"
+  },
+  {
+    "name": "Blue Topaz",
+    "source": "Local Typora blue-topaz.css (Nord / Blue Topaz)",
+    "file": "blue-topaz/theme.css",
+    "sha256": "6b9d16384da9dd06bd0431f92e3c0a5dca4e885da44e068dc67693a30497487c"
   }
 ]

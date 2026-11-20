@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ctypes
+import base64
 from ctypes import wintypes
 import hashlib
 import json
@@ -12,8 +13,9 @@ import threading
 
 from literature import Workspace, WorkspaceError, temporary_path
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 MAX_NOTE = 2 * 1024 * 1024
+MAX_IMAGE = 8 * 1024 * 1024
 
 
 def fingerprint(data):
@@ -126,6 +128,36 @@ class NoteStore:
         if len(data) > MAX_NOTE:
             raise WorkspaceError("笔记超过当前版本支持的 2 MB，请使用外部编辑器。")
         return {"note": data.decode("utf-8-sig"), "hash": fingerprint(data)}
+
+    def add_image(self, pid, encoded):
+        if not isinstance(encoded, str) or len(encoded) > 4 * ((MAX_IMAGE + 2) // 3):
+            raise WorkspaceError("每张图片最大为 8 MB。")
+        data = base64.b64decode(encoded, validate=True)
+        if len(data) > MAX_IMAGE:
+            raise WorkspaceError("每张图片最大为 8 MB。")
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            ext = "png"
+        elif data.startswith(b"\xff\xd8\xff"):
+            ext = "jpg"
+        elif data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+            ext = "webp"
+        else:
+            raise WorkspaceError("请选择 PNG、JPEG 或 WebP 图片。")
+        folder = self.path(pid).parent / "images"
+        if folder.is_symlink() or folder.is_junction():
+            raise WorkspaceError("图片目录不能是链接。")
+        name = fingerprint(data) + "." + ext
+        path = folder / name
+        with self.lock:
+            folder.mkdir(exist_ok=True)
+            if path.is_symlink() or path.is_junction():
+                raise WorkspaceError("图片文件不能是链接。")
+            if path.exists():
+                if fingerprint(path.read_bytes()) != fingerprint(data):
+                    raise WorkspaceError("同名图片内容不一致，请检查图片目录。")
+            else:
+                atomic_bytes(path, data)
+        return {"ok": True, "path": "images/" + name}
 
     def save(self, pid, text, expected):
         if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_NOTE:

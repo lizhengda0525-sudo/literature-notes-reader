@@ -16,7 +16,7 @@ import webbrowser
 
 from desktop_store import NoteStore, StateStore, VERSION
 from literature import WorkspaceError
-from reader import ReaderHandler, ReaderServer, zotero_links
+from reader import ReaderHandler, ReaderServer, launch_markdown, launch_zotero, note_summary, paper_detail
 
 APP_NAME = "精读笔记库"
 RESOURCE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
@@ -108,9 +108,17 @@ class DesktopAPI:
         return self.get_status()
 
     @guarded
+    def list_papers(self, project):
+        if not project and not self._notes:
+            return {"ok": True, "papers": []}
+        ws = self._project(project).workspace
+        return {"ok": True, "papers": [note_summary(ws, ws.paper(pid)) for pid in ws.ids()]}
+
+    @guarded
     def read_note(self, project, pid):
         notes = self._project(project)
-        return {"ok": True, **notes.read(pid),
+        notes.path(pid)
+        return {"ok": True, **paper_detail(notes.workspace, pid),
                 "recovery": self._state.recovery(notes.root, pid)}
 
     @guarded
@@ -157,7 +165,7 @@ class DesktopAPI:
         if not isinstance(value, dict) or len(json.dumps(value)) > 65536:
             raise WorkspaceError("界面设置无效。")
         # No arbitrary configuration or credentials accepted by this interface.
-        filtered = {key: value[key] for key in ("last_paper", "positions", "font_size", "reading_width", "focus")
+        filtered = {key: value[key] for key in ("last_paper", "positions", "font_size", "reading_width", "focus", "theme")
                     if key in value}
         key = self._state.key(notes.root, "ui")
         self._state.data.setdefault("projects", {})[key] = filtered
@@ -165,8 +173,12 @@ class DesktopAPI:
         return {"ok": True}
 
     @guarded
+    def add_image(self, project, pid, encoded):
+        return self._project(project).add_image(pid, encoded)
+
+    @guarded
     def open_note(self, project, pid):
-        os.startfile(str(self._project(project).path(pid)))
+        launch_markdown(self._project(project).path(pid))
         return {"ok": True}
 
     @guarded
@@ -177,11 +189,7 @@ class DesktopAPI:
     @guarded
     def open_zotero(self, project, pid):
         notes = self._project(project)
-        links = zotero_links(notes.workspace.paper(pid))
-        uri = links["pdf"] or links["item"]
-        if not uri:
-            raise WorkspaceError("该论文尚未关联经核对的 Zotero 条目。")
-        os.startfile(uri)
+        launch_zotero(notes.workspace.paper(pid))
         return {"ok": True}
 
     @guarded
@@ -235,21 +243,6 @@ class DesktopAPI:
         return True
 
 
-class DesktopHandler(ReaderHandler):
-    def do_GET(self):
-        if self.path == "/api/desktop/status":
-            if self.headers.get("Host") != f"127.0.0.1:{self.server.server_port}":
-                self.json_response({"error": "Local desktop only"}, 403)
-                return
-            self.json_response(self.server.controller.get_status())
-        else:
-            super().do_GET()
-
-    def do_POST(self):
-        # All desktop mutations use pywebview's native bridge, never a public REST action.
-        self.json_response({"error": "Use the desktop window"}, 403)
-
-
 def single_instance():
     kernel = ctypes.windll.kernel32
     kernel.CreateMutexW.restype = wintypes.HANDLE
@@ -296,14 +289,14 @@ def main():
             report["pdf_import"] = True
             report["required_assets"] = all((ASSETS / name).is_file() for name in (
                 "index.html", "reader.mjs", "evidence.mjs", "mapping.mjs", "reader.css",
-                "desktop-ui.mjs", "desktop.css", "vendor/katex/katex.min.js",
+                "desktop-ui.mjs", "desktop.css", "theme.css", "vendor/blue-topaz/theme.css", "vendor/katex/katex.min.js",
                 "vendor/dompurify/purify.min.js", "vendor/marked/marked.esm.js"))
         except Exception as error:
             report["error"] = type(error).__name__ + ": " + str(error)
         args.diagnostic_report.parent.mkdir(parents=True, exist_ok=True)
         args.diagnostic_report.write_text(json.dumps(report, ensure_ascii=False, indent=2), "utf-8")
         return 0
-    server = ReaderServer(("127.0.0.1", 0), partial(DesktopHandler, workspace=None, assets=ASSETS))
+    server = ReaderServer(("127.0.0.1", 0), partial(ReaderHandler, assets=ASSETS))
     server.controller = api
     server.daemon_threads = True
     worker = threading.Thread(target=server.serve_forever, daemon=True)
@@ -319,10 +312,10 @@ def main():
         import webview
         from webview.menu import Menu, MenuAction
         window_state = state.data.get("window", {})
-        window = webview.create_window(APP_NAME, f"http://127.0.0.1:{server.server_port}/?desktop=1",
+        window = webview.create_window(APP_NAME, f"http://127.0.0.1:{server.server_port}/",
             js_api=api, width=max(900, min(1600, int(window_state.get("width", 1280)))),
             height=max(620, min(1100, int(window_state.get("height", 820)))),
-            min_size=(820, 560), text_select=True, background_color="#FAFBF7",
+            min_size=(820, 560), text_select=True, background_color="#2e3440",
             menu=[Menu("项目", [MenuAction("打开已有项目…", lambda: window.evaluate_js(
                                     "document.getElementById('choose-project')?.click()")),
                                 MenuAction("打开项目文件夹", lambda: api.open_project_folder(str(api._notes.root)) if api._notes else None),

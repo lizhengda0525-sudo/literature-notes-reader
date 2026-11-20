@@ -53,4 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Markdown, formula and HTML sanitation libraries: see _internal/reader/vendor/manifest.json and each bundled license.
 
 
+Blue Topaz: bundled local Typora Nord/Blue Topaz stylesheet, with original attribution retained.
+
+
 Build tools: PyInstaller (GPL with bootloader exception), Pillow (HPND), Inno Setup (see compiler license). Build tools are not required on the user's computer.

@@ -1,16 +1,17 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="topaz">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>精读笔记库</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/assets/vendor/katex/katex.min.css">
+  <link id="topaz-theme" rel="stylesheet" href="/assets/vendor/blue-topaz/theme.css">
   <link rel="stylesheet" href="/assets/reader.css">
   <link rel="stylesheet" href="/assets/desktop.css">
+  <link rel="stylesheet" href="/assets/theme.css">
   <script defer src="/assets/vendor/katex/katex.min.js"></script>
   <script defer src="/assets/vendor/dompurify/purify.min.js"></script>
-  <script type="module" src="/assets/reader.mjs"></script>
   <script type="module" src="/assets/desktop-ui.mjs"></script>
 </head>
 <body>
@@ -44,9 +45,9 @@
   <section class="note-pane" aria-label="当前精读笔记">
     <div class="note-toolbar">
       <button id="library-toggle" aria-controls="library" aria-expanded="false">论文库</button>
-      <div class="segmented"><button id="mode-read" class="active" aria-pressed="true">精读笔记</button><button id="mode-source" aria-pressed="false">Markdown</button></div>
+      <div class="segmented"><button id="mode-read" class="active" aria-pressed="true">精读笔记</button></div>
       <select id="outline-select" aria-label="跳到笔记章节"><option value="">本篇目录</option></select>
-      <div class="actions"><button id="open-note" disabled>打开本地 MD ↗</button></div>
+      <div class="actions"><button id="zotero-link" disabled>打开 Zotero</button><button id="open-note" disabled>打开 Markdown 文件 ↗</button></div>
     </div>
     <div class="progress-track" aria-hidden="true"><div id="progress-fill"></div></div>
     <div id="note-scroll" tabindex="0" aria-label="笔记正文">
@@ -56,11 +57,11 @@
           <div class="paper-kicker"><span id="paper-id"></span><span id="paper-edition"></span></div>
           <h2 id="paper-title"></h2>
           <p id="paper-byline"></p><p id="paper-journal"></p>
-          <div class="heading-actions"><a id="zotero-link" hidden></a><button id="show-evidence">原文证据</button><button id="show-details" aria-expanded="false" aria-controls="paper-meta">论文信息</button></div>
+          <div class="heading-actions"><button id="show-evidence">原文证据</button><button id="show-details" aria-expanded="false" aria-controls="paper-meta">论文信息</button></div>
           <p id="zotero-status" hidden></p>
           <div id="paper-meta" hidden></div>
         </div>
-        <div id="note-content"></div><pre id="markdown-source" hidden></pre>
+        <div id="note-content"></div>
       </div>
     </div>
     <footer><span id="note-path"></span><span id="view-status" role="status"></span></footer>
@@ -81,6 +82,7 @@
 </dialog>
 <dialog id="settings-dialog" aria-labelledby="settings-title">
   <h2 id="settings-title">阅读设置</h2>
+  <label>阅读主题 <select id="theme-setting"><option value="topaz">Blue Topaz 暗色</option><option value="light">浅色</option></select></label>
   <label>正文字号 <output id="font-value" for="font-size"></output><input id="font-size" type="range" min="13" max="24" value="16"></label>
   <label>正文宽度 <select id="width-setting"><option value="normal">舒适</option><option value="wide">宽屏</option></select></label>
   <div class="dialog-actions"><button id="close-settings">完成</button></div>

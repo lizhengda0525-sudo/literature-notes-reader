@@ -38,6 +38,7 @@ def licenses():
         (output / "Python").mkdir(parents=True, exist_ok=True)
         shutil.copyfile(python_license, output / "Python/LICENSE.txt")
     rows.append("\nMarkdown, formula and HTML sanitation libraries: see _internal/reader/vendor/manifest.json and each bundled license.\n")
+    rows.append("\nBlue Topaz: bundled local Typora Nord/Blue Topaz stylesheet, with original attribution retained.\n")
     rows.append("\nBuild tools: PyInstaller (GPL with bootloader exception), Pillow (HPND), Inno Setup (see compiler license). Build tools are not required on the user's computer.\n")
     (DESKTOP / "THIRD_PARTY.md").write_text("\n".join(rows), "utf-8")
 
@@ -65,7 +66,7 @@ PDF 用 Zotero 打开；正式笔记仍是论文目录内的 close-reading.md。
 
 - 阅读：检索正文、按标签/研究问题/状态筛选、章节目录、字号与正文宽度、专注阅读。
 - 证据：点击正文引用或证据分布图中的页柱，查看相应版本、物理页与定位。
-- 编辑：点击“编辑 MD”，支持 Markdown、预览、Ctrl+S 保存、Ctrl+Z 撤销。
+- 编辑：点击“编辑 MD”，左侧输入、右侧实时预览。粘贴、拖入或选择图片，原文件自动存入本篇 images/。Ctrl+S 保存相对引用，Ctrl+Z 撤销。阅读设置可以切换 Blue Topaz 暗色与浅色。
 - 修改冲突：外部编辑或 Codex 同时改动时，不自动覆盖；比较磁盘与未保存版本后继续手动合并。
 - 恢复：未保存内容使用 Windows 当前用户加密，保存在本机应用数据目录的恢复区。
 - 关闭：有未保存修改时提示；程序升级和卸载不删除研究项目。

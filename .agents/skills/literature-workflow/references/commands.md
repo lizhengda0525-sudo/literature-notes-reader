@@ -5,7 +5,6 @@
 ```powershell
 ./lit.cmd register "10_inbox/paper.pdf" --title "论文题名" --rq RQ01
 ./lit.cmd extract P0001
-./lit.cmd reader P0001
 ./lit.cmd clean P0001
 ./lit.cmd add-version P0001 "10_inbox/revised.pdf" --label v2 --activate
 ./lit.cmd status P0001 --reading skimmed
@@ -24,7 +23,7 @@
 ```
 
 register 会校验归档副本后移出收件箱原件；外部路径原件保留，--keep-inbox 可保留收件箱副本。
-reader [Pxxxx] 启动仅本机可访问的统一 HTML 精读笔记库并打开浏览器；双击根目录“打开阅读页.cmd”也可使用。PDF 在 Zotero 单独阅读，页面直接显示已有 MD；“编辑本地 MD”打开系统关联编辑器，保存后刷新。--port 指定端口，--no-browser 只启动服务。首次服务窗口需保持运行；重复启动复用同一项目服务，其他服务占用端口时明确报错。页面不写笔记或核对状态；状态变更继续使用 status，不在网页冒充人工核对。
+使用 Windows 桌面软件“精读笔记库”打开文献项目。“编辑 MD”双栏编辑和预览，Ctrl+S 写回正式文件。插入、粘贴或拖入图片后以 images/ 相对路径引用。
 extract 将辅助文本写入 .tmp/extract/Pxxxx/，仅用于定位原文；本轮使用后 clean Pxxxx 删除已知提取产物。clean 不删除 PDF、笔记和证据；遇到未知临时内容会停止，需逐项检查。其他任务的临时目录由创建者在使用后清理。
 review new / idea new 只创建模板，须实际完成分析和证据引用后再 stamp。已有成果直接编辑，不能反复 new。
 status --verification reviewed --user-confirmed 仅用于用户明确授权且实际完成的人工核对。

@@ -3,30 +3,17 @@ import {splitNote} from "./mapping.mjs";
 import {bindEvidence, linkEvidence, versionName} from "./evidence.mjs";
 
 const $ = id => document.getElementById(id);
-const state = {papers: [], paper: null, request: 0, mode: "read", desktop: false, ui: {positions: {}}};
+const state = {papers: [], paper: null, request: 0, mode: "read", ui: {positions: {}}};
 const labels = {queued: "待阅读", skimmed: "已速读", deep_read: "已精读", skipped: "已跳过"};
 const verification = {reviewed: "用户已核对", partial: "部分核对", unreviewed: "用户待核对"};
 const scroll = $("note-scroll");
 let noticeTimer, positionTimer, scrollFrame, catalogRequest = 0;
 let sectionNodes = [], activeSection = null;
-let storagePrefix = "note-";
-
-function readLocal(key) {
-  try { return localStorage.getItem(storagePrefix + key); } catch { return null; }
-}
-function writeLocal(key, value) {
-  try { localStorage.setItem(storagePrefix + key, value); } catch {}
-}
 function notice(value) {
   $("notice").textContent = value?.message || String(value);
   $("notice").hidden = false;
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => { $("notice").hidden = true; }, 6500);
-}
-async function getJson(url) {
-  const response = await fetch(url, {cache: "no-store"});
-  if (!response.ok) throw new Error("无法读取本地笔记，请检查项目目录后刷新。");
-  return response.json();
 }
 function renderMarkdown(source) {
   const math = [];
@@ -106,12 +93,10 @@ function rememberPosition() {
   const id = state.paper.id;
   state.ui.positions ??= {};
   state.ui.positions[id] = scroll.scrollTop;
-  if (state.desktop) window.readerDesktop?.persistUi();
-  else writeLocal("position:" + id, String(scroll.scrollTop));
+  window.readerDesktop?.persistUi();
 }
 function positionFor(id) {
-  if (state.desktop) return Number(state.ui.positions?.[id]) || 0;
-  return Number(readLocal("position:" + id) || state.ui.positions?.[id]) || 0;
+  return Number(state.ui.positions?.[id]) || 0;
 }
 function trackLocation() {
   const reading = state.mode === "read" && !!state.paper;
@@ -150,17 +135,21 @@ function setMode(mode) {
   if (previous !== mode) rememberPosition();
   state.mode = mode;
   $("note-content").hidden = mode !== "read";
-  $("markdown-source").hidden = mode !== "source";
   scroll.hidden = mode === "edit";
-  for (const [id, value] of [["mode-read", "read"], ["mode-source", "source"]]) {
-    $(id).classList.toggle("active", mode === value);
-    $(id).setAttribute("aria-pressed", String(mode === value));
-  }
+  $("mode-read").classList.toggle("active", mode === "read");
+  $("mode-read").setAttribute("aria-pressed", String(mode === "read"));
   $("outline").hidden = mode !== "read";
   $("outline-select").disabled = mode !== "read" || !state.paper;
-  $("view-status").textContent = ({read: "精读笔记", source: "Markdown 源文", edit: "编辑 Markdown"})[mode];
+  $("view-status").textContent = ({read: "精读笔记", edit: "编辑 Markdown"})[mode];
   if (previous !== mode && state.paper) scroll.scrollTop = mode === "read" ? positionFor(state.paper.id) : 0;
   trackLocation();
+}
+function imageUrl(relative, paperId) {
+  let path;
+  try { path = decodeURIComponent(relative).replace(/^\.\//, ""); }
+  catch { return null; }
+  if (!/^images\/[^/\\:?#\x00-\x1f]+\.(?:png|jpe?g|webp)$/i.test(path)) return null;
+  return "/paper/" + paperId + "/images/" + encodeURIComponent(path.slice(7));
 }
 function prepareBody(section, paper) {
   const body = document.createElement("div");
@@ -171,16 +160,15 @@ function prepareBody(section, paper) {
     table.replaceWith(wrap);
     wrap.append(table);
   }
-  const imagePath = /^images\/[\w.-]+\.(png|jpe?g|webp)$/i;
-  const fileUrl = relative => "/paper/" + paper.id + "/" + relative.split("/").map(encodeURIComponent).join("/");
   for (const img of body.querySelectorAll("img")) {
-    const src = img.getAttribute("src") || "";
-    if (imagePath.test(src)) { img.src = fileUrl(src); img.loading = "lazy"; }
+    const src = imageUrl(img.getAttribute("src") || "", paper.id);
+    if (src) { img.src = src; img.loading = "lazy"; }
     else { img.removeAttribute("src"); img.alt = "图片不在本篇档案中"; }
   }
   for (const link of body.querySelectorAll("a")) {
     const href = link.getAttribute("href") || "";
-    if (imagePath.test(href)) link.href = fileUrl(href);
+    const image = imageUrl(href, paper.id);
+    if (image) link.href = image;
     else if (paper.versions.some(v => v.file === href)) {
       link.replaceWith(document.createTextNode(link.textContent + "（在 Zotero 阅读）"));
       continue;
@@ -248,10 +236,9 @@ function renderHeading(paper) {
   $("note-path").title = paper.note_path;
   const uri = paper.zotero.pdf || paper.zotero.item;
   const link = $("zotero-link");
-  link.hidden = !uri;
-  if (uri) link.href = uri;
-  else link.removeAttribute("href");
-  link.textContent = paper.zotero.pdf ? "Zotero 打开原文 ↗" : "Zotero 定位条目 ↗";
+  link.disabled = !uri;
+  link.title = uri ? "使用本机 Zotero 打开" : "这篇论文尚未关联 Zotero";
+  link.textContent = paper.zotero.pdf ? "Zotero 打开原文 ↗" : uri ? "Zotero 定位条目 ↗" : "Zotero 未关联";
   $("zotero-status").hidden = !!uri;
   $("zotero-status").textContent = "此篇尚未关联 Zotero 条目，可在 Zotero 中按题名查找。";
   $("open-note").disabled = false;
@@ -261,7 +248,7 @@ async function loadPaper(id) {
   rememberPosition();
   clearTimeout(positionTimer);
   const request = ++state.request;
-  const paper = await getJson("/api/papers/" + encodeURIComponent(id));
+  const paper = await window.readerDesktop.readPaper(id);
   if (request !== state.request) return false;
   const position = positionFor(id);
   state.paper = paper;
@@ -269,16 +256,11 @@ async function loadPaper(id) {
   $("reading-page").hidden = false;
   $("empty-reading").hidden = true;
   renderHeading(paper);
-  $("markdown-source").textContent = paper.note;
   renderNotes();
   renderLibrary();
   setMode(state.mode);
   scroll.scrollTop = state.mode === "read" ? position : 0;
   trackLocation();
-  const url = new URL(location.href);
-  url.searchParams.set("paper", paper.id);
-  history.replaceState(null, "", url);
-  if (!state.desktop) writeLocal("last-paper", paper.id);
   document.title = paper.title + " · 精读笔记库";
   await window.readerDesktop?.loaded(paper);
   return true;
@@ -292,6 +274,8 @@ function clearPaper() {
   const welcome = $("welcome-panel");
   $("empty-reading").hidden = Boolean(welcome && !welcome.hidden);
   $("page-map").hidden = true;
+  $("zotero-link").disabled = true;
+  $("zotero-link").textContent = "打开 Zotero";
   $("open-note").disabled = true;
   $("note-path").textContent = "";
   $("outline").replaceChildren();
@@ -305,7 +289,7 @@ function clearPaper() {
 async function refresh() {
   const request = ++catalogRequest;
   rememberPosition();
-  const papers = await getJson("/api/papers");
+  const papers = await window.readerDesktop.listPapers();
   if (request !== catalogRequest) return;
   state.papers = papers;
   for (const [id, field, title] of [["rq-filter", "research_questions", "全部问题"], ["tag-filter", "tags", "全部标签"]]) {
@@ -315,14 +299,16 @@ async function refresh() {
     select.value = values.includes(previous) ? previous : "";
   }
   renderLibrary();
-  const requested = new URLSearchParams(location.search).get("paper");
-  const selected = state.paper?.id || (state.desktop ? state.ui.last_paper : requested || readLocal("last-paper"));
-  const target = papers.find(p => p.id === selected) || papers[0];
+  const target = papers.find(p => p.id === (state.paper?.id || state.ui.last_paper)) || papers[0];
   if (target) await loadPaper(target.id);
   else clearPaper();
 }
 
 function settings() {
+  const theme = state.ui.theme === "light" ? "light" : "topaz";
+  document.documentElement.dataset.theme = theme;
+  $("topaz-theme").disabled = theme !== "topaz";
+  $("theme-setting").value = theme;
   const size = Math.max(13, Math.min(24, Number(state.ui.font_size) || 16));
   document.documentElement.style.setProperty("--note-font", size + "px");
   document.body.classList.toggle("reading-wide", state.ui.reading_width === "wide");
@@ -335,8 +321,7 @@ function settings() {
 }
 function saveSettings() {
   settings();
-  if (state.desktop) window.readerDesktop?.persistUi();
-  else writeLocal("preferences", JSON.stringify({font_size: state.ui.font_size, focus: state.ui.focus, reading_width: state.ui.reading_width}));
+  window.readerDesktop?.persistUi();
 }
 function scheduleLocation() {
   cancelAnimationFrame(scrollFrame);
@@ -354,7 +339,6 @@ $("library-toggle").onclick = () => mobileLibrary(true);
 $("library-back").onclick = () => { mobileLibrary(false); $("library-toggle").focus(); };
 $("refresh").onclick = () => refresh().catch(notice);
 $("mode-read").onclick = () => setMode("read");
-$("mode-source").onclick = () => setMode("source");
 $("outline-select").onchange = event => goToSection(event.target.value);
 $("show-details").onclick = event => {
   const panel = $("paper-meta");
@@ -364,17 +348,9 @@ $("show-details").onclick = event => {
 $("focus-reading").onclick = () => { state.ui.focus = !state.ui.focus; mobileLibrary(false); saveSettings(); };
 $("reading-settings").onclick = () => $("settings-dialog").showModal();
 $("close-settings").onclick = () => $("settings-dialog").close();
+$("theme-setting").onchange = event => { state.ui.theme = event.target.value; saveSettings(); };
 $("font-size").oninput = event => { state.ui.font_size = Number(event.target.value); saveSettings(); };
 $("width-setting").onchange = event => { state.ui.reading_width = event.target.value; saveSettings(); };
-$("open-note").onclick = async () => {
-  if (!state.paper) return;
-  try {
-    const response = await fetch("/api/papers/" + state.paper.id + "/open-note", {method:"POST", headers:{"X-Reader-Action":"open-note"}});
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    notice("已交给本地 Markdown 编辑器。保存后可刷新笔记库。");
-  } catch (error) { notice(error); }
-};
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && document.body.classList.contains("library-open")) $("library-back").click();
   if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey || document.querySelector("dialog[open]") || event.target.closest("input,textarea,select,[contenteditable=true]")) return;
@@ -391,15 +367,4 @@ scroll.addEventListener("scroll", () => {
 addEventListener("resize", scheduleLocation);
 addEventListener("beforeunload", rememberPosition);
 
-async function start() {
-  if (location.search.includes("desktop=1")) return;
-  const browserIdentity = await getJson("/api/identity");
-  if (state.desktop) return;
-  storagePrefix = "reader-" + browserIdentity.workspace + ":";
-  try { Object.assign(state.ui, JSON.parse(readLocal("preferences") || "{}")); } catch {}
-  settings();
-  await refresh();
-}
-start().catch(notice);
-
-export {state, loadPaper, refresh, setMode, renderMarkdown, renderNotes, notice, rememberPosition, settings};
+export {state, loadPaper, refresh, setMode, renderMarkdown, renderNotes, imageUrl, notice, rememberPosition, settings};

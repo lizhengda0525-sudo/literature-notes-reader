@@ -4,3 +4,5 @@
 *.json text eol=lf
 *.jsonl text eol=lf
 *.cmd text eol=crlf
+.agents/skills/literature-workflow/** -text
+90_system/reader/vendor/blue-topaz/theme.css -text
