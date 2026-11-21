@@ -13,7 +13,7 @@ import threading
 
 from literature import Workspace, WorkspaceError, temporary_path
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 MAX_NOTE = 2 * 1024 * 1024
 MAX_IMAGE = 8 * 1024 * 1024
 

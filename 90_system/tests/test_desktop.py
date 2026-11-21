@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -113,19 +114,71 @@ class DesktopTests(unittest.TestCase):
         api = DesktopAPI(self.state, self.root)
         snapshot = {"dirty": True, "project": str(self.root), "pid": self.pid,
                     "text": "last unsaved keystroke", "base_hash": "old", "ui": {}}
-        api._window = SimpleNamespace(evaluate_js=lambda _: snapshot,
+        api._window = SimpleNamespace(events=SimpleNamespace(loaded=SimpleNamespace(is_set=lambda: True)), evaluate_js=lambda _: snapshot,
             create_confirmation_dialog=lambda *_: False, width=1200, height=800)
-        self.assertFalse(api._closing())
+        self.assertFalse(api._prepare_close())
         self.assertEqual(self.state.recovery(self.root, self.pid)["text"], snapshot["text"])
 
     def test_close_is_cancelled_when_recovery_cannot_be_written(self):
         api = DesktopAPI(self.state, self.root)
         snapshot = {"dirty": True, "project": str(self.root), "pid": self.pid,
                     "text": "last edit", "base_hash": "old", "ui": {}}
-        api._window = SimpleNamespace(evaluate_js=lambda _: snapshot,
+        api._window = SimpleNamespace(events=SimpleNamespace(loaded=SimpleNamespace(is_set=lambda: True)), evaluate_js=lambda _: snapshot,
             create_confirmation_dialog=lambda *_: True, width=1200, height=800)
         with patch.object(self.state, "recovery", side_effect=OSError("full disk")):
+            self.assertFalse(api._prepare_close())
+
+    def test_close_returns_to_message_pump_before_snapshot_and_second_close(self):
+        api = DesktopAPI(self.state, self.root)
+        loaded = threading.Event()
+        loaded.set()
+        entered, pump, closed = (threading.Event() for _ in range(3))
+        snapshots, approvals = [], []
+        ui_thread = threading.get_ident()
+
+        def evaluate(script):
+            snapshots.append(threading.get_ident())
+            entered.set()
+            if not pump.wait(2):
+                raise RuntimeError("UI thread is blocked by the closing callback")
+            return {"dirty": True, "project": str(self.root), "pid": self.pid,
+                    "text": "final input", "base_hash": "old"}
+
+        def destroy():
+            approvals.append(api._closing())
+            closed.set()
+
+        api._window = SimpleNamespace(events=SimpleNamespace(loaded=loaded), evaluate_js=evaluate,
+            create_confirmation_dialog=lambda *_: True, destroy=destroy, width=1000, height=700)
+        self.assertFalse(api._closing())
+        self.assertTrue(entered.wait(2))
+        self.assertFalse(api._closing())   # A repeated click must not schedule a second snapshot.
+        pump.set()
+        self.assertTrue(closed.wait(3))
+        self.assertEqual(len(snapshots), 1)
+        self.assertNotEqual(snapshots[0], ui_thread)
+        self.assertEqual(approvals, [True])
+        self.assertEqual(self.state.recovery(self.root, self.pid)["text"], "final input")
+
+    def test_cancel_resumes_editor_and_next_close_can_succeed(self):
+        api = DesktopAPI(self.state, self.root)
+        loaded = threading.Event()
+        loaded.set()
+        confirmations = iter((False, True))
+        calls = []
+        def evaluate(script):
+            calls.append(script)
+            return {"dirty": True, "project": str(self.root), "pid": self.pid,
+                    "text": "draft", "base_hash": "old"}
+        api._window = SimpleNamespace(events=SimpleNamespace(loaded=loaded), evaluate_js=evaluate,
+            create_confirmation_dialog=lambda *_: next(confirmations),
+            destroy=lambda: calls.append("closed"), width=1000, height=700)
+        for attempt in range(2):
             self.assertFalse(api._closing())
+            self.assertTrue(api._close_pending.acquire(timeout=3))
+            api._close_pending.release()
+            self.assertEqual("closed" in calls, attempt == 1)
+        self.assertEqual(calls.count("document.body.inert = false"), 1)
 
     def test_drafts_for_two_papers_are_not_confused(self):
         second = Workspace(self.root).register(make_pdf(self.root / "10_inbox/two.pdf", "two"))["paper_id"]

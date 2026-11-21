@@ -45,6 +45,8 @@ class DesktopAPI:
         self._drafts = {}
         self._persisted_drafts = {}
         self._stop = threading.Event()
+        self._close_pending = threading.Lock()
+        self._close_approved = threading.Event()
         self._generation = 0
         candidate = root or state.data.get("last_project")
         if candidate:
@@ -218,18 +220,42 @@ class DesktopAPI:
                 self._draft_error = "本机恢复草稿写入失败，请尽快保存笔记。"
 
     def _closing(self):
-        # Capture the current keystrokes before the asynchronous draft debounce.
+        # WinForms calls this synchronously on its UI thread. WebView2 needs
+        # that thread to deliver the result of any editor snapshot.
+        if self._close_approved.is_set():
+            return True
+        if self._close_pending.acquire(blocking=False):
+            threading.Thread(target=self._finish_close, name="desktop-close", daemon=True).start()
+        return False
+
+    def _finish_close(self):
         try:
-            snapshot = self._window.evaluate_js("window.readerDesktop && window.readerDesktop.snapshot()")
-            if snapshot and snapshot.get("dirty"):
-                result = self.preserve_draft(snapshot["project"], snapshot["pid"], snapshot["text"], snapshot["base_hash"])
-                if not result.get("ok"):
-                    self._window.create_confirmation_dialog("草稿保存失败", "请先保存或复制未保存内容。本次关闭已取消。")
-                    return False
-            if snapshot and snapshot.get("ui") and self._notes:
-                self.save_ui(str(self._notes.root), snapshot["ui"])
+            if self._prepare_close():
+                self._close_approved.set()
+                self._window.destroy()
         except Exception:
-            snapshot = None
+            self._close_approved.clear()
+            self._window.create_confirmation_dialog("暂时无法退出", "请先保存笔记，再重试退出。")
+        finally:
+            try:
+                if not self._close_approved.is_set() and self._window.events.loaded.is_set():
+                    self._window.evaluate_js("document.body.inert = false")
+            finally:
+                self._close_pending.release()
+
+    def _prepare_close(self):
+        snapshot = None
+        if self._window.events.loaded.is_set():
+            snapshot = self._window.evaluate_js("window.readerDesktop?.snapshot() ?? null")
+        if snapshot and snapshot.get("busy"):
+            return False
+        if snapshot and snapshot.get("dirty"):
+            result = self.preserve_draft(snapshot["project"], snapshot["pid"], snapshot["text"], snapshot["base_hash"])
+            if not result.get("ok"):
+                self._window.create_confirmation_dialog("草稿保存失败", "请先保存或复制未保存内容。本次关闭已取消。")
+                return False
+        if snapshot and snapshot.get("ui") and self._notes:
+            self.save_ui(str(self._notes.root), snapshot["ui"])
         if self._drafts:
             try:
                 self._flush_drafts()

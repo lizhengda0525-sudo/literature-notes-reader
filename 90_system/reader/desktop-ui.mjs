@@ -19,6 +19,11 @@ async function beforeNavigate(){
   return confirm('这篇笔记有未保存修改，已保留本机恢复草稿。确定离开当前笔记吗？');
 }
 function snapshot(){
+  if(edit.saving || edit.importing){
+    notice('正在写入笔记或图片，请在完成后退出。');
+    return {busy:true};
+  }
+  document.body.inert = true;
   rememberPosition();
   return {project:edit.project,pid:state.paper?.id,text:$('note-editor')?.value||'',base_hash:edit.base,dirty:edit.dirty,ui:state.ui};
 }
@@ -112,7 +117,7 @@ async function adoptProject(value){
 }
 async function chooseProject(){if(!(await beforeNavigate()))return;try{await adoptProject(await call('choose_project'));}catch(error){notice(error);}}
 async function poll(){
-  if(pollBusy||edit.loading||edit.saving||edit.importing)return;pollBusy=true;
+  if(document.body.inert||pollBusy||edit.loading||edit.saving||edit.importing)return;pollBusy=true;
   try{
     const value=await call('get_status');
     if(value.generation!==status.generation){await adoptProject(value);return;}
