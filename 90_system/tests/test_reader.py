@@ -67,15 +67,14 @@ class DesktopReaderTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/papers/{self.pid}/open-note", "POST")[0], 403)
         self.assertEqual(self.request("/", headers={"Host":"untrusted.example"})[0], 403)
 
-    def test_detail_matches_disk_and_catalog_and_evidence(self):
+    def test_detail_matches_disk_and_catalog_without_citation_metadata(self):
         path = self.folder / "close-reading.md"
-        row = f"| {self.pid}:E001 | analysis | v1 | 1 | 图 1 | 测试判断 | fixture excerpt | ai |"
-        path.write_text(path.read_text("utf-8") + "\n" + row + "\n", "utf-8-sig")
+        path.write_text(path.read_text("utf-8") + "\n个人笔记。\n", "utf-8-sig")
         data = self.api.read_note(self.project, self.pid)
         self.assertEqual(data["note_hash"], hashlib.sha256(path.read_bytes()).hexdigest())
         self.assertEqual(data["note"], path.read_text("utf-8-sig"))
         self.assertEqual(data["versions"][0]["pages"], 1)
-        self.assertEqual(data["evidence"][0]["id"], self.pid + ":E001")
+        self.assertNotIn("evidence", data)
         self.assertEqual(self.api.list_papers(self.project)["papers"][0]["id"], self.pid)
 
     def test_image_saved_once_per_paper_and_relative_link_survives_reopen(self):

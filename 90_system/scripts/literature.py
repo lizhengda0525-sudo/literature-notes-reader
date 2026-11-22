@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from urllib.parse import unquote
 import re
 import shutil
 import subprocess
@@ -16,7 +17,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 READING = ("queued", "skimmed", "deep_read", "skipped")
 VERIFICATION = ("unreviewed", "partial", "reviewed")
 IDEA_STAGES = ("candidate", "needs_search", "needs_experiment", "supported", "paused", "dropped")
-EVIDENCE_RE = re.compile(r"\b(P\d{4,}):E(\d{3,})\b")
+FIGURE_SECTION = "主方法框架图"
+NOTE_LINK = re.compile(r'(!?)\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|([^\s)]+))(?:\s+"[^"\n]*")?\s*\)')
 PLACEHOLDER = re.compile(r"待填写|待补充|TODO|\{\{[^}]+\}\}", re.I)
 
 class WorkspaceError(Exception):
@@ -56,6 +58,9 @@ def safe_path(base, relative):
     if not result.is_relative_to(base.resolve()):
         raise WorkspaceError("Path escapes its directory.")
     return result
+
+def table_cell(value):
+    return " ".join(value.splitlines()).replace("\\", "\\\\").replace("|", r"\|")
 
 def normalize_doi(value):
     value = re.sub(r"^(https?://(dx\.)?doi\.org/|doi:\s*)", "", (value or "").strip(), flags=re.I)
@@ -155,9 +160,7 @@ class Workspace:
 
     def render(self, name, values):
         text = (self.templates / name).read_text(encoding="utf-8")
-        for key, value in values.items():
-            text = text.replace("{{" + key + "}}", str(value))
-        return text
+        return re.sub(r"\{\{(\w+)\}\}", lambda m: str(values.get(m[1], m[0])), text)
 
     def ledger(self):
         path = self.project / "registrations.jsonl"
@@ -237,7 +240,9 @@ class Workspace:
             }
             note = safe_path(folder, meta["note_path"])
             note.parent.mkdir(parents=True, exist_ok=True)
-            note.write_text(self.render("paper_note.md", {"paper_id": pid}), encoding="utf-8")
+            note.write_text(self.render("paper_note.md", {
+                "paper_id": pid, "title": table_cell(meta["title"]), "doi": table_cell(doi) or "待填写",
+            }), encoding="utf-8")
             dump(folder / "paper.json", meta)
             record = {"paper_id": pid, "registered_at": date, "initial_pdf_sha256": digest,
                       "directory": f"20_papers/{pid}"}
@@ -285,64 +290,50 @@ class Workspace:
                 "note_sha256": sha(safe_path(folder, meta["note_path"])),
                 "source_version": active["version"], "source_sha256": active["sha256"]}
 
-    def evidence(self, pid, text=None):
-        meta = self.paper(pid)
-        if text is None:
-            text = safe_path(self.papers / pid, meta["note_path"]).read_text(encoding="utf-8")
-        versions = {v["version"] for v in meta["source"]["versions"]}
-        rows, errors = {}, []
-        page_counts = {}
-        for line in text.splitlines():
-            if not line.strip().startswith("|"):
-                continue
-            cells = [v.strip() for v in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
-            if not cells or not re.fullmatch(r"P\d{4,}:E\d{3,}", cells[0]):
-                continue
-            key = cells[0]
-            if key in rows:
-                errors.append(f"Duplicate evidence ID: {key}")
-            if not key.startswith(pid + ":") or len(cells) != 8:
-                errors.append(f"Invalid evidence row: {key}")
-                continue
-            if cells[2] not in versions or not cells[3].isdigit() or int(cells[3]) < 1:
-                errors.append(f"Invalid PDF version/page: {key}")
-            if cells[1] not in ("author", "analysis", "idea") or cells[7] not in ("ai", "user"):
-                errors.append(f"Invalid origin/reviewer: {key}")
-            if not all(cells):
-                errors.append(f"Empty evidence field: {key}")
-            if cells[2] in versions and cells[3].isdigit() and int(cells[3]) > 0:
-                try:
-                    from pypdf import PdfReader
-                    version = next(v for v in meta["source"]["versions"] if v["version"] == cells[2])
-                    if cells[2] not in page_counts:
-                        page_counts[cells[2]] = len(PdfReader(str(safe_path(self.papers / pid, version["file"]))).pages)
-                    if int(cells[3]) > page_counts[cells[2]]:
-                        errors.append(f"PDF page is out of range: {key}")
-                except ImportError:
-                    pass
-                except Exception as error:
-                    errors.append(f"Cannot validate PDF page for {key}: {type(error).__name__}")
-            rows[key] = cells
-        return rows, errors
-
     def note_complete(self, pid):
-        meta = self.paper(pid)
-        text = safe_path(self.papers / pid, meta["note_path"]).read_text(encoding="utf-8")
-        rows, errors = self.evidence(pid)
-        errors.extend(self.link_errors(safe_path(self.papers / pid, meta["note_path"])))
-        sections, heading = {}, None
+        folder = self.papers / pid
+        path = safe_path(folder, self.paper(pid)["note_path"])
+        text = path.read_text(encoding="utf-8-sig")
+        errors = self.link_errors(path)
+        # Personal notes are free-form, including headings and unfinished questions.
+        text = re.sub(r"<!-- USER_NOTES_START -->.*?<!-- USER_NOTES_END -->", "", text, flags=re.S)
+        sections, headings = {}, []
+        fence = ""
         for line in text.splitlines():
+            marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+            if marker:
+                if not fence:
+                    fence = marker[1]
+                    if headings:
+                        sections[headings[-1]].append("[代码]")
+                elif marker[1].startswith(fence) and not marker[2].strip():
+                    fence = ""
+                continue
+            if fence:
+                continue
             if line.startswith("## "):
-                heading = line[3:].strip()
-                sections[heading] = []
-            elif heading:
-                sections[heading].append(line)
-        for name in self.config["required_note_sections"]:
+                name = line[3:].strip()
+                headings.append(name)
+                sections[name] = []
+            elif headings:
+                sections[headings[-1]].append(line)
+        # Older workspaces can still open and save their original Markdown.
+        required = [s for s in self.config["required_note_sections"] if s != "原文证据"]
+        for name in required:
             body = "\n".join(sections.get(name, [])).strip()
             if not body or PLACEHOLDER.search(body):
-                errors.append(f"Unfinished section: {name}")
-        if not rows:
-            errors.append("A completed reading needs at least one located evidence row.")
+                errors.append(f"未完成章节「{name}」")
+        if FIGURE_SECTION in required:
+            ordered = headings[:len(required) - 1] == required[:-1] and headings[-1:] == required[-1:]
+            if not ordered or any(headings.count(name) > 1 for name in required):
+                errors.append("笔记章节顺序应为" + " → ".join(required))
+            figure = "\n".join(sections.get(FIGURE_SECTION, []))
+            paths = [unquote(quoted or plain) for image, quoted, plain in NOTE_LINK.findall(figure) if image]
+            has_figure = any(re.fullmatch(r"images/[^/\\:?#]+\.(?:png|jpe?g|webp)", p, re.I)
+                             and safe_path(folder, p).is_file() for p in paths)
+            decision = re.search(r"(?:你|您|用户|读者)(?:的|已|来|自行|另行)?(?:决定|确认|选择)", figure)
+            if not has_figure and not decision:
+                errors.append("主方法框架图需嵌入本篇作者原图，缺图时请说明情况并标记“待你决定”。")
         return errors
 
     def status(self, pid, reading=None, verification=None, user_confirmed=False):
@@ -434,30 +425,14 @@ class Workspace:
         self.index()
         return {"kind": kind, "id": identifier, "directory": str(folder)}
 
-    def all_evidence(self):
-        keys, errors = set(), []
-        for pid in self.ids():
-            rows, messages = self.evidence(pid)
-            keys.update(rows)
-            errors.extend(messages)
-        return keys, errors
-
     def stamp(self, kind, identifier, status=None):
         folder = self.artifact_dir(kind, identifier)
         meta = load(folder / f"{kind}.json")
         text = (folder / f"{kind}.md").read_text(encoding="utf-8")
-        if PLACEHOLDER.search(text):
+        if not text.strip() or PLACEHOLDER.search(text):
             raise WorkspaceError("Artifact still contains unfinished template fields.")
-        citations = {":E".join(match) for match in EVIDENCE_RE.findall(text)}
-        evidence, invalid = set(), []
-        for pid in meta["paper_ids"]:
-            rows, messages = self.evidence(pid)
-            evidence.update(rows)
-            invalid.extend(messages)
-        if not citations or citations - evidence or invalid:
-            raise WorkspaceError("Artifact needs valid evidence citations such as P0001:E001.")
-        if {c.split(":")[0] for c in citations} - set(meta["paper_ids"]):
-            raise WorkspaceError("Cited papers must be in paper_ids.")
+        if not meta["paper_ids"] and not meta.get("review_ids"):
+            raise WorkspaceError("Declare the inputs used for this artifact.")
         for rid in meta.get("review_ids", []):
             if self.stale(load(self.artifact_dir("review", rid) / "review.json")):
                 raise WorkspaceError(f"Update and stamp review {rid} first.")
@@ -493,23 +468,23 @@ class Workspace:
                  f"论文：{len(papers)}；专题：{sum(a['kind']=='review' for a in artifacts)}；想法：{sum(a['kind']=='idea' for a in artifacts)}。",
                  "", "| 编号 | 题名 | 阅读状态 | 人工核对 | 研究问题 |", "|---|---|---|---|---|"]
         for row in papers:
-            title = row["title"].replace("|", r"\|").replace("\n", " ")
+            title = table_cell(row["title"])
             lines.append(f"| [{row['paper_id']}](../{row['note_path']}) | {title} | "
                          f"{row['reading_status']} | {row['verification_status']} | {', '.join(row['research_questions'])} |")
         if not papers:
             lines += ["", "尚未登记论文。把 PDF 放入 10_inbox 后进行登记。"]
         lines += ["", "| 成果 | 标题 | 状态 | 更新检查 |", "|---|---|---|---|"]
         for row in artifacts:
-            title = row["title"].replace("|", r"\|").replace("\n", " ")
+            title = table_cell(row["title"])
             freshness = "需更新" if row["stale_reasons"] else "输入未变化"
             lines.append(f"| [{row['id']}](../{row['path']}) | {title} | {row['status']} | {freshness} |")
         (self.project / "catalog.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         return {"papers": len(papers), "artifacts": len(artifacts)}
 
     def link_errors(self, path):
-        from urllib.parse import unquote
         errors = []
-        for target in re.findall(r"!?" + r"\[[^\]]*\]\(<?([^\s)>]+)>?\)", path.read_text(encoding="utf-8")):
+        for _, quoted, plain in NOTE_LINK.findall(path.read_text(encoding="utf-8-sig")):
+            target = quoted or plain
             if target.startswith(("#", "http://", "https://", "mailto:", "data:")):
                 continue
             target = unquote(target.split("#", 1)[0])
@@ -584,12 +559,10 @@ class Workspace:
                 note = safe_path(folder, meta["note_path"])
                 if not note.is_file():
                     errors.append(f"{pid}: missing note")
+                elif meta["reading_status"] == "deep_read":
+                    errors.extend(f"{pid}: {m}" for m in self.note_complete(pid))
                 else:
-                    _, messages = self.evidence(pid)
-                    errors.extend(f"{pid}: {m}" for m in messages)
                     errors.extend(f"{pid}: {m}" for m in self.link_errors(note))
-                    if meta["reading_status"] == "deep_read":
-                        errors.extend(f"{pid}: {m}" for m in self.note_complete(pid))
                 if meta.get("note_source_sha256") not in (None, active["sha256"]):
                     warnings.append(f"{pid}: note belongs to a previous PDF version")
                 doi = normalize_doi(meta.get("doi"))
@@ -605,19 +578,12 @@ class Workspace:
         for pid in set(registered) - set(self.ids()):
             errors.append(f"{pid}: registered directory is missing")
         try:
-            evidence, invalid = self.all_evidence()
-            errors.extend(invalid)
             for kind, folder, meta in self.artifacts():
                 if self.artifact_dir(kind, meta["id"]) != folder:
                     errors.append(f"{folder.name}: ID/directory mismatch")
                 if set(meta["paper_ids"]) - set(self.ids()):
                     errors.append(f"{meta['id']}: unknown input papers")
-                text = (folder / f"{kind}.md").read_text(encoding="utf-8")
                 errors.extend(f"{meta['id']}: {m}" for m in self.link_errors(folder / f"{kind}.md"))
-                cited = {":E".join(match) for match in EVIDENCE_RE.findall(text)}
-                errors.extend(f"{meta['id']}: unknown evidence {key}" for key in sorted(cited - evidence))
-                if {c.split(":")[0] for c in cited} - set(meta["paper_ids"]):
-                    errors.append(f"{meta['id']}: cited paper is not in paper_ids")
                 if meta["kind"] != kind or meta["schema_version"] != 1:
                     errors.append(f"{meta['id']}: invalid artifact kind/schema")
                 if kind == "review" and meta.get("review_ids"):
@@ -625,7 +591,7 @@ class Workspace:
                 if self.stale(meta):
                     warnings.append(f"{meta['id']}: needs update")
         except (OSError, ValueError, KeyError, TypeError, WorkspaceError) as error:
-            errors.append(f"Evidence/artifact check: {error}")
+            errors.append(f"Artifact check: {error}")
         return {"ok": not errors, "papers": len(self.ids()),
                 "errors": list(dict.fromkeys(errors)), "warnings": list(dict.fromkeys(warnings))}
 

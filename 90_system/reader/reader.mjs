@@ -1,6 +1,5 @@
 import {marked} from "./vendor/marked/marked.esm.js";
 import {splitNote} from "./mapping.mjs";
-import {bindEvidence, linkEvidence, versionName} from "./evidence.mjs";
 
 const $ = id => document.getElementById(id);
 const state = {papers: [], paper: null, request: 0, mode: "read", ui: {positions: {}}};
@@ -161,9 +160,19 @@ function prepareBody(section, paper) {
     wrap.append(table);
   }
   for (const img of body.querySelectorAll("img")) {
-    const src = imageUrl(img.getAttribute("src") || "", paper.id);
-    if (src) { img.src = src; img.loading = "lazy"; }
-    else { img.removeAttribute("src"); img.alt = "图片不在本篇档案中"; }
+    const relative = img.getAttribute("src") || "";
+    const src = imageUrl(relative, paper.id);
+    if (src) {
+      img.src = src;
+      img.loading = "lazy";
+      if (!img.closest("a")) {
+        const zoom = document.createElement("a");
+        zoom.setAttribute("href", relative);
+        zoom.title = "放大原图";
+        img.replaceWith(zoom);
+        zoom.append(img);
+      }
+    } else { img.removeAttribute("src"); img.alt = "图片不在本篇档案中"; }
   }
   for (const link of body.querySelectorAll("a")) {
     const href = link.getAttribute("href") || "";
@@ -176,12 +185,11 @@ function prepareBody(section, paper) {
     link.target = "_blank";
     link.rel = "noopener noreferrer";
   }
-  if (section.title !== "原文证据") linkEvidence(body, paper);
   return body;
 }
 function renderNotes() {
   const paper = state.paper;
-  const sections = splitNote(paper.note, paper.id, paper.evidence);
+  const sections = splitNote(paper.note);
   $("note-content").replaceChildren();
   $("outline").replaceChildren();
   $("outline-select").replaceChildren(new Option("本篇目录", ""));
@@ -192,12 +200,12 @@ function renderNotes() {
     card.id = section.id;
     card.className = "note-section";
     if (section.intro) card.classList.add("note-intro");
-    if (section.title === "一句话定位") card.classList.add("note-summary");
+    if (section.title === "摘要中译") card.classList.add("note-summary");
     if (!section.body) card.classList.add("section-heading");
     const body = prepareBody(section, paper);
-    if (section.intro || section.title === "原文证据") {
+    if (section.intro) {
       const details = document.createElement("details"), summary = document.createElement("summary");
-      summary.textContent = section.intro ? section.title : "原文证据表 · " + paper.evidence.length + " 条";
+      summary.textContent = section.title;
       details.append(summary, body);
       card.append(details);
     } else {
@@ -214,14 +222,17 @@ function renderNotes() {
     $("note-content").append(card);
     sectionNodes.push({card, button});
   }
-  bindEvidence(paper);
 }
 function renderHeading(paper) {
   $("paper-id").textContent = paper.id;
-  $("paper-edition").textContent = [versionName(paper, paper.current_version), labels[paper.reading_status] || paper.reading_status, verification[paper.verification_status] || paper.verification_status].join("  /  ");
+  const edition = paper.versions.find(v => v.id === paper.current_version);
+  $("paper-edition").textContent = [edition?.label || paper.current_version, labels[paper.reading_status] || paper.reading_status, verification[paper.verification_status] || paper.verification_status].join("  /  ");
   $("paper-title").textContent = paper.title;
   $("paper-byline").textContent = paper.authors.join(" · ");
   $("paper-journal").textContent = [paper.year, paper.journal].filter(Boolean).join("  /  ");
+  const hasMetadataSection = /^## 论文信息[ \t]*$/m.test(paper.note);
+  $("paper-byline").hidden = hasMetadataSection;
+  $("paper-journal").hidden = hasMetadataSection;
   const meta = $("paper-meta");
   meta.replaceChildren();
   for (const [label, values] of [["研究问题", paper.research_questions], ["方法标签", paper.tags], ["原文版本", paper.versions.map(v => v.label + " (" + v.id + ") · " + v.pages + " 页")]]) {
@@ -273,7 +284,6 @@ function clearPaper() {
   $("reading-page").hidden = true;
   const welcome = $("welcome-panel");
   $("empty-reading").hidden = Boolean(welcome && !welcome.hidden);
-  $("page-map").hidden = true;
   $("zotero-link").disabled = true;
   $("zotero-link").textContent = "打开 Zotero";
   $("open-note").disabled = true;

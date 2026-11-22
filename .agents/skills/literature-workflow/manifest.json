@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "agents/openai.yaml",
-      "sha256": "2131f509155f3cca5b896bfbe50e5086b8e56ef85d208f7ef31396d54964a45f"
+      "sha256": "3440acf71522d721306f22159078501d27fa1d277bca2e2511debdf2aa15c084"
     },
     {
       "path": "licenses/Delores-MIT.txt",
@@ -16,11 +16,11 @@
     },
     {
       "path": "references/appraisal.md",
-      "sha256": "40f3e25c55daca480da718eea1c3d6c3f7b573e158d6f6c20c54aa52710a9391"
+      "sha256": "82c5b7a229732fe1cf74e154ce27ecc326a52346ae951029f78c28bdec4a9f05"
     },
     {
       "path": "references/commands.md",
-      "sha256": "15fcc1a264af973e4275c79345b28fbc77589ba18f98ce830aecc066f6296930"
+      "sha256": "b559106801f008ac9e6b82949899da64d8152e522db0bc863481943ac1a1c464"
     },
     {
       "path": "references/maintenance.md",
@@ -28,7 +28,7 @@
     },
     {
       "path": "references/reading.md",
-      "sha256": "40455448cfcd36cce6b22553311f84aacd17e940f5622bc9cddf9edf59be85c9"
+      "sha256": "c50a0f0e8bd2a7c5dcbfb3b45034b0ff28bc0eaefe7f464aeb62731fe47f2be9"
     },
     {
       "path": "references/search-and-citations.md",
@@ -36,11 +36,11 @@
     },
     {
       "path": "references/synthesis-and-ideas.md",
-      "sha256": "e1466d624cd4a929b8aed3b4bd41a0a9811bb3165a11ccad6b1b8fa8d85e6e59"
+      "sha256": "ab0f7e0e0f9fd69200c7acce6b44daf2c5f7358342dff2496b07a83b8c3fc6aa"
     },
     {
       "path": "SKILL.md",
-      "sha256": "0566d55c6d1d22221dffaad39ed05c7bf461ae8fd6f620bba948d21706079803"
+      "sha256": "3d844aa5b9f96efef5044fdf4bfef0ee20881820ef26f1c066bbb3e95695caab"
     },
     {
       "path": "sources.json",

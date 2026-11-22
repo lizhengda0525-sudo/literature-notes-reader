@@ -75,9 +75,6 @@ def paper_detail(ws, pid):
         raise WorkspaceError("笔记超过 2 MB，请使用外部编辑器。")
     note_bytes = note.read_bytes()
     markdown = note_bytes.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
-    evidence, errors = ws.evidence(pid, markdown)
-    if errors:
-        evidence = {}
     from pypdf import PdfReader
     versions = []
     for version in meta["source"]["versions"]:
@@ -98,13 +95,8 @@ def paper_detail(ws, pid):
             "research_questions": meta.get("research_questions", []),
             "note_path": str(note), "zotero": zotero_links(meta),
             "note_hash": hashlib.sha256(note_bytes).hexdigest(),
-            "validation_errors": errors,
             "current_version": meta["source"]["current_version"],
-            "note": markdown,
-            "evidence": [{"id": row[0], "kind": row[1], "version": row[2],
-                                     "page": int(row[3]), "locator": row[4],
-                                     "claim": row[5], "excerpt": row[6],
-                                     "checked_by": row[7]} for row in evidence.values()]}
+            "note": markdown}
 
 
 class ReaderHandler(BaseHTTPRequestHandler):

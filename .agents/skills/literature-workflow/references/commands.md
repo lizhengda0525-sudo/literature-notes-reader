@@ -24,8 +24,8 @@
 
 register 会校验归档副本后移出收件箱原件；外部路径原件保留，--keep-inbox 可保留收件箱副本。
 使用 Windows 桌面软件“精读笔记库”打开文献项目。“编辑 MD”双栏编辑和预览，Ctrl+S 写回正式文件。插入、粘贴或拖入图片后以 images/ 相对路径引用。
-extract 将辅助文本写入 .tmp/extract/Pxxxx/，仅用于定位原文；本轮使用后 clean Pxxxx 删除已知提取产物。clean 不删除 PDF、笔记和证据；遇到未知临时内容会停止，需逐项检查。其他任务的临时目录由创建者在使用后清理。
-review new / idea new 只创建模板，须实际完成分析和证据引用后再 stamp。已有成果直接编辑，不能反复 new。
+extract 将辅助文本写入 .tmp/extract/Pxxxx/，仅用于定位原文；本轮使用后 clean Pxxxx 删除已知提取产物。clean 保留 PDF、笔记和原图；遇到未知临时内容会停止，需逐项检查。其他任务的临时目录由创建者在使用后清理。
+review new / idea new 只创建模板，须按声明的输入完成实际分析后再 stamp。已有成果直接编辑，不能反复 new。
 status --verification reviewed --user-confirmed 仅用于用户明确授权且实际完成的人工核对。
 精细 Zotero 命令先查 .venv/Scripts/zotero-cli.exe --help；不调用 0.15.1 不支持的 library info，不直接修改书库数据库。
 

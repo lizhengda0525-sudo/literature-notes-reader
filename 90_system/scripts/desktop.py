@@ -314,7 +314,7 @@ def main():
             from pypdf import PdfReader
             report["pdf_import"] = True
             report["required_assets"] = all((ASSETS / name).is_file() for name in (
-                "index.html", "reader.mjs", "evidence.mjs", "mapping.mjs", "reader.css",
+                "index.html", "reader.mjs", "mapping.mjs", "reader.css",
                 "desktop-ui.mjs", "desktop.css", "theme.css", "vendor/blue-topaz/theme.css", "vendor/katex/katex.min.js",
                 "vendor/dompurify/purify.min.js", "vendor/marked/marked.esm.js"))
         except Exception as error:

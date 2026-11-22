@@ -62,18 +62,15 @@ class WorkspaceBehaviorTests(unittest.TestCase):
     def add(self, name="one", **kwargs):
         return self.ws.register(make_pdf(self.root / "10_inbox" / f"{name}.pdf", name), **kwargs)["paper_id"]
 
-    def finish_note(self, pid, page=1):
+    def finish_note(self, pid, figure="未找到作者提供的主方法框架图，待你决定如何处理。"):
         meta = self.ws.paper(pid)
         chunks = [f"# {pid} TEST NOTE"]
         for heading in self.ws.config["required_note_sections"]:
-            chunks.extend(["", f"## {heading}", "Test analysis from a synthetic fixture."])
-            if heading == "原文证据":
-                chunks.extend(["| evidence_id | type | version | pdf_page | locator | claim | excerpt | checked_by |",
-                               "|---|---|---|---|---|---|---|---|",
-                               f"| {pid}:E001 | author | v1 | {page} | Test page | Test claim | TEST FIXTURE | ai |"])
-            if heading == "我的想法与疑问":
-                chunks.extend(["<!-- USER_NOTES_START -->", "Do not replace my words.",
-                               "<!-- USER_NOTES_END -->"])
+            chunks.extend(["", f"## {heading}"])
+            chunks.append(figure if heading == "主方法框架图" else "Synthetic analysis.")
+            if heading == "精读笔记":
+                chunks.extend(["### 我的想法与疑问", "<!-- USER_NOTES_START -->",
+                               "## TODO Keep my own heading and words.", "<!-- USER_NOTES_END -->"])
         path = self.root / "20_papers" / pid / meta["note_path"]
         path.write_text("\n".join(chunks) + "\n", encoding="utf-8")
         return path
@@ -81,14 +78,14 @@ class WorkspaceBehaviorTests(unittest.TestCase):
     def ready_review(self, pids):
         result = self.ws.new_artifact("review", "Test comparison", pids, "RQ01")
         path = self.ws.artifact_dir("review", result["id"]) / "review.md"
-        path.write_text("# TEST review\n" + " ".join(f"{pid}:E001" for pid in pids), encoding="utf-8")
+        path.write_text("# TEST review\nThe studies used different sampling intervals.", encoding="utf-8")
         self.ws.stamp("review", "RQ01")
         return path
 
     def test_registration_deduplicates_and_only_consumes_inbox(self):
         original = make_pdf(self.root / "10_inbox/one.pdf", "one")
         digest = sha(original)
-        result = self.ws.register(original, rqs=["RQ01"])
+        result = self.ws.register(original, title="Signal | noise", doi="10.1234/test", rqs=["RQ01"])
         self.assertEqual(result["paper_id"], "P0001")
         self.assertFalse(original.exists())
         target = self.root / "20_papers/P0001/source.pdf"
@@ -98,6 +95,8 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         self.assertEqual(note.name, "close-reading.md")
         self.assertEqual(note.parent, target.parent)
         self.assertTrue(note.is_file())
+        self.assertIn(r"| 原文题名 | Signal \| noise |", note.read_text("utf-8"))
+        self.assertIn("| DOI | 10.1234/test |", note.read_text("utf-8"))
         self.assertFalse((target.parent / "notes").exists())
         catalog = load(self.root / "90_system/index/catalog.json")
         self.assertEqual(catalog["papers"][0]["note_path"], "20_papers/P0001/close-reading.md")
@@ -172,16 +171,35 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         self.assertEqual(self.ws.paper(pid)["verification_status"], "unreviewed")
         self.assertTrue(self.ws.check()["ok"])
 
-    def test_invalid_and_out_of_bounds_evidence_pages_are_rejected(self):
+    def test_framework_figure_needs_a_local_image_or_a_reader_decision(self):
         pid = self.add()
-        self.finish_note(pid, page=0)
-        self.assertFalse(self.ws.check()["ok"])
-        self.finish_note(pid, page=99)
-        self.assertFalse(self.ws.check()["ok"])
-        with self.assertRaises(WorkspaceError):
-            self.ws.status(pid, reading="deep_read")
+        for figure in ("", "Generic text", "![remote](https://example.org/figure.png)",
+                       "![broken](images/missing.png)", "~~~md\n![example](images/sample.png)\n~~~"):
+            with self.subTest(figure=figure):
+                self.finish_note(pid, figure)
+                with self.assertRaises(WorkspaceError):
+                    self.ws.status(pid, reading="deep_read")
+        folder = self.ws.papers / pid / "images"
+        folder.mkdir()
+        (folder / "author figure.png").write_bytes(b"fixture")
+        for figure in ("![作者原图](<images/author figure.png>)", "未找到作者框架图，待你决定。",
+                       "按你的决定略过框架图。"):
+            with self.subTest(figure=figure):
+                self.finish_note(pid, figure)
+                self.assertEqual(self.ws.note_complete(pid), [])
 
-    def test_broken_evidence_image_is_detected(self):
+    def test_overview_order_and_last_section_are_checked(self):
+        pid = self.add()
+        note = self.finish_note(pid)
+        good = note.read_text("utf-8")
+        for bad in (good.replace("## 摘要中译", "## temp").replace("## 结论中译", "## 摘要中译").replace("## temp", "## 结论中译"),
+                    good + "\n## extra\nExtra\n"):
+            note.write_text(bad, "utf-8")
+            self.assertTrue(self.ws.note_complete(pid))
+        note.write_text(good, "utf-8")
+        self.assertEqual(self.ws.note_complete(pid), [])
+
+    def test_broken_note_image_is_detected(self):
         pid = self.add()
         note = self.finish_note(pid)
         with note.open("a", encoding="utf-8") as stream:
@@ -198,7 +216,7 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         self.ready_review(pids)
         idea = self.ws.new_artifact("idea", "TEST hypothesis", pids, review_ids=["RQ01"])["id"]
         idea_dir = self.ws.artifact_dir("idea", idea)
-        (idea_dir / "idea.md").write_text("# TEST idea\nP0001:E001", encoding="utf-8")
+        (idea_dir / "idea.md").write_text("# TEST idea\nCompare changes across time intervals.", encoding="utf-8")
         self.ws.stamp("idea", idea)
         review_meta = load(self.ws.artifact_dir("review", "RQ01") / "review.json")
         self.assertFalse(self.ws.stale(review_meta))
@@ -213,13 +231,14 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         self.ws.stamp("idea", idea)
         self.assertFalse(self.ws.stale(load(idea_dir / "idea.json")))
 
-    def test_cross_paper_evidence_must_be_declared_as_input(self):
-        pids = [self.add("one"), self.add("two")]
-        for pid in pids:
-            self.finish_note(pid)
-        self.ws.new_artifact("review", "TEST", pids[:1], "RQ01")
-        path = self.ws.artifact_dir("review", "RQ01") / "review.md"
-        path.write_text("P0002:E001", encoding="utf-8")
+    def test_unknown_input_paper_cannot_be_stamped(self):
+        pid = self.add()
+        self.ws.new_artifact("review", "TEST", [pid], "RQ01")
+        folder = self.ws.artifact_dir("review", "RQ01")
+        (folder / "review.md").write_text("A finished comparison.", encoding="utf-8")
+        meta = load(folder / "review.json")
+        meta["paper_ids"] = ["P0999"]
+        dump(folder / "review.json", meta)
         with self.assertRaises(WorkspaceError):
             self.ws.stamp("review", "RQ01")
         self.assertFalse(self.ws.check()["ok"])
@@ -339,7 +358,7 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         output = Path(self.ws.extract(pid)["output"])
         note = self.finish_note(pid)
         with note.open("a", encoding="utf-8") as stream:
-            stream.write(f"\n[Bad temporary evidence](../../.tmp/extract/{pid}/fulltext.md)\n")
+            stream.write(f"\n[Bad temporary link](../../.tmp/extract/{pid}/fulltext.md)\n")
         errors = self.ws.check()["errors"]
         self.assertTrue(any("must not reference temporary" in error for error in errors))
         self.assertTrue(output.is_file())

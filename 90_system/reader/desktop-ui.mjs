@@ -65,7 +65,6 @@ async function loaded(paper){
       };
       $('discard-draft').onclick=async()=>{if(confirm('确定放弃这份恢复草稿？原 MD 不会改动。')){await call('discard_recovery',edit.project,paper.id);$('recovery-banner').hidden=true;}};
     }
-    if(paper.validation_errors?.length)banner('此笔记有需要核对的证据格式。可继续编辑，保存后查看项目检查结果。','warning');
   }catch(error){banner(error.message,'warning');}
   finally{if(state.paper===paper)edit.loading=false;}
 }
@@ -94,7 +93,7 @@ async function save(){
       banner('已保存到原 Markdown 文件。');
     } catch (error) {
       renderNotes();
-      banner('笔记已保存。刷新笔记库可重新载入证据索引。','warning');
+      banner('笔记已保存。刷新笔记库可重新载入笔记。','warning');
     } finally {edit.ignoreGuard=false;}
     if(result.validation?.ok===false){
       $('validation-errors').textContent=(result.validation.errors||[]).join('\n');
@@ -147,7 +146,7 @@ function buildUi(){
   const tools=el('div',{class:'editor-tools'});tools.append(el('span',{},'Markdown 源文'),el('button',{id:'insert-image'},'插入图片'),el('input',{id:'image-file',type:'file',accept:'image/png,image/jpeg,image/webp',hidden:''}),el('button',{id:'toggle-preview','aria-pressed':'true'},'收起预览'));
   const split=el('div',{id:'editor-split',class:'has-preview'});split.append(el('textarea',{id:'note-editor','aria-label':'Markdown 编辑器',spellcheck:'false'}),el('div',{id:'edit-preview',class:'note-section','aria-label':'Markdown 实时预览'}));panel.append(tools,split);document.querySelector('.note-pane').insertBefore(panel,document.querySelector('.note-pane footer'));
   const welcome=el('div',{id:'welcome-panel',hidden:''});welcome.append(el('h2',{},'打开你的文献阅读项目'),el('p',{},'选择已有项目文件夹，直接阅读和维护其中的 Markdown 笔记。'),el('button',{id:'welcome-open'},'选择项目文件夹'));$('note-scroll').prepend(welcome);
-  document.body.insertAdjacentHTML('beforeend',`<dialog id="conflict-dialog"><h2>原文件已在外部修改</h2><p>没有覆盖磁盘内容。请对照两份内容，再选择如何继续。</p><div class="conflict-columns"><label>当前磁盘版本<textarea id="disk-version" readonly></textarea></label><label>你的未保存内容<textarea id="my-version" readonly></textarea></label></div><div class="dialog-actions"><button id="reload-disk">使用磁盘版本</button><button id="merge-continue">继续编辑并手动合并</button><button id="close-conflict">返回</button></div></dialog><dialog id="validation-dialog"><h2>文件已保存，以下记录需要核对</h2><pre id="validation-errors"></pre><button id="close-validation">返回笔记</button></dialog><dialog id="image-dialog"><button id="close-image">关闭图片</button><img id="evidence-image" alt="原文证据图片"></dialog>`);
+  document.body.insertAdjacentHTML('beforeend',`<dialog id="conflict-dialog"><h2>原文件已在外部修改</h2><p>没有覆盖磁盘内容。请对照两份内容，再选择如何继续。</p><div class="conflict-columns"><label>当前磁盘版本<textarea id="disk-version" readonly></textarea></label><label>你的未保存内容<textarea id="my-version" readonly></textarea></label></div><div class="dialog-actions"><button id="reload-disk">使用磁盘版本</button><button id="merge-continue">继续编辑并手动合并</button><button id="close-conflict">返回</button></div></dialog><dialog id="validation-dialog"><h2>文件已保存，以下记录需要核对</h2><pre id="validation-errors"></pre><button id="close-validation">返回笔记</button></dialog><dialog id="image-dialog"><button id="close-image">关闭图片</button><img id="note-image" alt="笔记插图放大预览"></dialog>`);
 }
 function bindEditor(){
   buildUi();
@@ -170,7 +169,7 @@ function bindEditor(){
   document.addEventListener('click',event=>{
     const link=event.target.closest('a');if(!link)return;
     const href=link.href;if(!href)return;event.preventDefault();
-    if(href.startsWith(location.origin+'/paper/')&&/\.(png|jpe?g|webp)$/i.test(href)){$('evidence-image').src=href;$('image-dialog').showModal();}
+    if(href.startsWith(location.origin+'/paper/')&&/\.(png|jpe?g|webp)$/i.test(href)){$('note-image').src=href;$('image-dialog').showModal();}
     else call('open_link',href).catch(notice);
   });
 }

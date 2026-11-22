@@ -10,23 +10,22 @@
   --serif: var(--font-family-heading);
   --mono: var(--font-family-mono);
 }
-[data-theme=topaz] :is(.app-bar,.note-toolbar,.outline-pane,.note-pane footer,.editor-tools,#desktop-banner,#recovery-banner,.note-summary,.segmented,.note-section th,#evidence-rows blockquote) {
+[data-theme=topaz] :is(.app-bar,.note-toolbar,.outline-pane,.note-pane footer,.editor-tools,#desktop-banner,#recovery-banner,.note-summary,.segmented,.note-section th) {
   background:var(--bg-color-secondary);color:var(--ink);border-color:var(--line);
 }
 [data-theme=topaz] :is(button,select,input,.conflict-columns textarea,.library,.note-section pre,.note-section code,#edit-preview,#note-editor) {
   background:var(--paper);color:var(--ink);border-color:var(--line);
 }
-[data-theme=topaz] :is(#paper-title,#paper-byline,.paper-kicker,.outline-link,#scroll-percent,.library-foot,#show-evidence,#project-name) {color:var(--ink)}
+[data-theme=topaz] :is(#paper-title,#paper-byline,.paper-kicker,.outline-link,#scroll-percent,.library-foot,#project-name) {color:var(--ink)}
 [data-theme=topaz] .note-section {color:var(--ink);font-family:var(--font-family-sans)}
 [data-theme=topaz] .note-section h2 {color:var(--accent-orange)}
 [data-theme=topaz] .note-section h3 {color:var(--accent-yellow)}
 [data-theme=topaz] :is(.app-bar,.outline-pane,.library) :is(h1,h2) {border:0;margin:0;padding:0;color:var(--ink)}
 [data-theme=topaz] :is(.paper-card.active,.segmented .active,.outline-link[aria-current=location],button:hover,#zotero-link:hover) {background:var(--bg-color-tertiary);color:var(--ink)}
-[data-theme=topaz] :is(.cite,#save-status,#paper-edition,.evidence-label) {color:var(--accent-yellow)}
+[data-theme=topaz] :is(#save-status,#paper-edition) {color:var(--accent-yellow)}
 [data-theme=topaz] :is(#zotero-link,#save-note:not(:disabled)) {background:var(--accent-cyan);color:var(--bg-color-code);border-color:var(--accent-cyan)}
 [data-theme=topaz] #save-note:disabled {background:var(--bg-color-tertiary);color:var(--muted)}
-[data-theme=topaz] :is(.library,.book-mark,.search-field,.map-bar span) {background:var(--bg-color-secondary)}
-[data-theme=topaz] .map-bar span {background:var(--accent-cyan)}
+[data-theme=topaz] :is(.library,.book-mark,.search-field) {background:var(--bg-color-secondary)}
 [data-theme=topaz] .note-section .katex {color:var(--ink)}
 [data-theme=topaz] #desktop-banner[data-kind=warning] {background:var(--bg-color-secondary);color:var(--accent-yellow)}
 .editing-note main {grid-template-columns:minmax(0,1fr)}

@@ -1,4 +1,4 @@
 interface:
   display_name: "文献研究全流程"
-  short_description: "从本地论文归档、精读和证据核查到专题比较、想法验证与项目维护"
+  short_description: "从本地论文归档、精读、作者原图解读到专题比较、想法验证与项目维护"
   default_prompt: "使用 $literature-workflow 阅读收件箱中的论文，保存本地笔记并更新项目进度。"

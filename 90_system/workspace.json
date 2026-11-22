@@ -4,15 +4,12 @@
   "timezone": "Asia/Shanghai",
   "reading_mode": "autonomous",
   "required_note_sections": [
-    "一句话定位",
-    "研究问题与假设",
-    "方法拆解",
-    "实验与证据",
-    "结论与局限",
-    "与本课题的关系",
-    "原文证据",
-    "我的想法与疑问",
-    "下一步"
+    "论文信息",
+    "摘要中译",
+    "主方法框架图",
+    "结论中译",
+    "精读笔记",
+    "与动态脑网络建模的联系"
   ],
   "zotero": {
     "mode": "local_read_only",

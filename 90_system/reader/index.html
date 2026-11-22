@@ -57,7 +57,7 @@
           <div class="paper-kicker"><span id="paper-id"></span><span id="paper-edition"></span></div>
           <h2 id="paper-title"></h2>
           <p id="paper-byline"></p><p id="paper-journal"></p>
-          <div class="heading-actions"><button id="show-evidence">原文证据</button><button id="show-details" aria-expanded="false" aria-controls="paper-meta">论文信息</button></div>
+          <div class="heading-actions"><button id="show-details" aria-expanded="false" aria-controls="paper-meta">标签与版本</button></div>
           <p id="zotero-status" hidden></p>
           <div id="paper-meta" hidden></div>
         </div>
@@ -69,17 +69,8 @@
   <aside class="outline-pane" aria-label="阅读导航">
     <div class="outline-head"><h2>本篇目录</h2><span id="scroll-percent"></span></div>
     <nav id="outline" aria-label="笔记章节"></nav>
-    <section id="page-map" hidden>
-      <div class="map-head"><h2>证据分布</h2><select id="map-version" aria-label="证据图的原文版本"></select></div>
-      <div id="map-bars" aria-label="按 PDF 物理页统计证据"></div>
-      <div class="map-axis"><span>PDF 第 1 页</span><span id="map-last"></span></div>
-    </section>
   </aside>
 </main>
-<dialog id="evidence-dialog" aria-labelledby="evidence-title">
-  <div class="dialog-heading"><div><span id="evidence-paper" class="mono"></span><h2 id="evidence-title">原文证据</h2></div><button id="close-evidence" autofocus>关闭</button></div>
-  <p id="evidence-context"></p><ol id="evidence-rows"></ol>
-</dialog>
 <dialog id="settings-dialog" aria-labelledby="settings-title">
   <h2 id="settings-title">阅读设置</h2>
   <label>阅读主题 <select id="theme-setting"><option value="topaz">Blue Topaz 暗色</option><option value="light">浅色</option></select></label>
