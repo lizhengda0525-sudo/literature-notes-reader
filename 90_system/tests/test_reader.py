@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "90_system/scripts"))
 from desktop import DesktopAPI
 from desktop_store import StateStore
 from literature import Workspace
+from paper_resources import validate_resource_catalog
 from reader import ReaderHandler, ReaderServer, zotero_links
 from test_workflow import make_pdf
 
@@ -76,6 +77,51 @@ class DesktopReaderTests(unittest.TestCase):
         self.assertEqual(data["versions"][0]["pages"], 1)
         self.assertNotIn("evidence", data)
         self.assertEqual(self.api.list_papers(self.project)["papers"][0]["id"], self.pid)
+
+    def test_resource_inventory_is_shared_by_reading_and_library(self):
+        original = self.api.get_status()["signature"]
+        self.assertEqual(self.api.read_note(self.project, self.pid)["resources"], {"sources": [], "items": []})
+        image = self.api.add_image(self.project, self.pid, PNG)["path"]
+        catalog = {"sources": [
+            {"id": "main", "scope": "main", "status": "available", "label": "正文", "file": "source.pdf"},
+            {"id": "supp", "scope": "supplement", "status": "unavailable", "label": "补充材料", "note": "待取得"}],
+            "items": [{"id": "eq-1", "kind": "equation", "number": "1", "title": "测试公式",
+                       "source": "main", "page": 1, "image": image}]}
+        manifest = self.folder / "resources.json"
+        manifest.write_text(json.dumps({"schema_version": 1, **catalog}), "utf-8")
+        self.assertNotEqual(self.api.get_status()["signature"], original)
+        self.assertEqual(self.api.read_note(self.project, self.pid)["resources"], catalog)
+        self.assertEqual(self.api.list_papers(self.project)["papers"][0]["resources"], catalog)
+        self.assertEqual(validate_resource_catalog(self.folder), [])
+        catalog["items"][0]["page"] = 2
+        manifest.write_text(json.dumps({"schema_version": 1, **catalog}), "utf-8")
+        self.assertTrue(validate_resource_catalog(self.folder))
+        manifest.unlink()
+        self.assertEqual(self.api.get_status()["signature"], original)
+
+    def test_bad_resource_does_not_hide_paper_or_other_resources(self):
+        image = self.api.add_image(self.project, self.pid, PNG)["path"]
+        valid = {"id": "fig-1", "kind": "figure", "number": "1", "title": "对照", "source": "main",
+                 "page": 1, "image": image}
+        manifest = self.folder / "resources.json"
+        origin = {"id": "main", "scope": "main", "status": "available", "label": "正文", "file": "source.pdf"}
+        for invalid in ({**valid, "id": "fig-2", "image": "images/../source.pdf"},
+                        {**valid, "id": "fig-2", "source": "missing"}, valid, None):
+            with self.subTest(invalid=invalid):
+                manifest.write_text(json.dumps({"schema_version": 1, "sources": [origin],
+                                                "items": [valid, invalid]}), "utf-8")
+                resources = self.api.list_papers(self.project)["papers"][0]["resources"]
+                self.assertEqual(resources["items"], [valid])
+                self.assertTrue(resources["error"])
+                self.assertTrue(validate_resource_catalog(self.folder))
+        manifest.write_text("{", "utf-8")
+        self.assertTrue(self.api.read_note(self.project, self.pid)["resources"]["error"])
+
+    def test_exit_menu_uses_the_same_close_guard_as_the_window(self):
+        self.api._window = object()
+        with patch.object(self.api, "_closing") as close:
+            self.assertTrue(self.api.request_exit()["ok"])
+            close.assert_called_once_with()
 
     def test_image_saved_once_per_paper_and_relative_link_survives_reopen(self):
         original = self.api.read_note(self.project, self.pid)

@@ -14,10 +14,15 @@ import subprocess
 import sys
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from paper_resources import validate_resource_catalog
+
 READING = ("queued", "skimmed", "deep_read", "skipped")
 VERIFICATION = ("unreviewed", "partial", "reviewed")
 IDEA_STAGES = ("candidate", "needs_search", "needs_experiment", "supported", "paused", "dropped")
 FIGURE_SECTION = "主方法框架图"
+ORIGINAL_DISCLOSURE = re.compile(
+    r"(?P<translation>.*?)\n<details>\s*<summary>英文原文</summary>\s*(?P<original>.*?)\s*</details>",
+    re.DOTALL)
 NOTE_LINK = re.compile(r'(!?)\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|([^\s)]+))(?:\s+"[^"\n]*")?\s*\)')
 PLACEHOLDER = re.compile(r"待填写|待补充|TODO|\{\{[^}]+\}\}", re.I)
 
@@ -154,9 +159,12 @@ class Workspace:
             raise WorkspaceError("Exactly one active PDF version is required.")
         return versions[0]
 
+    def question_titles(self):
+        text = (self.project / "questions.md").read_text(encoding="utf-8-sig")
+        return {key: title.strip() for key, title in re.findall(r"^## (RQ\d+)\b([^\n]*)", text, re.M)}
+
     def questions(self):
-        return set(re.findall(r"^## (RQ\d+)\b",
-                   (self.project / "questions.md").read_text(encoding="utf-8"), re.M))
+        return set(self.question_titles())
 
     def render(self, name, values):
         text = (self.templates / name).read_text(encoding="utf-8")
@@ -238,6 +246,8 @@ class Workspace:
                     {"version": "v1", "file": "source.pdf", "sha256": digest, "added_at": date}]},
                 "added_at": date, "updated_at": date, "history": []
             }
+            if "关键词" in self.config["required_note_sections"]:
+                meta["note_format_version"] = 2
             note = safe_path(folder, meta["note_path"])
             note.parent.mkdir(parents=True, exist_ok=True)
             note.write_text(self.render("paper_note.md", {
@@ -292,9 +302,10 @@ class Workspace:
 
     def note_complete(self, pid):
         folder = self.papers / pid
-        path = safe_path(folder, self.paper(pid)["note_path"])
+        meta = self.paper(pid)
+        path = safe_path(folder, meta["note_path"])
         text = path.read_text(encoding="utf-8-sig")
-        errors = self.link_errors(path)
+        errors = []
         # Personal notes are free-form, including headings and unfinished questions.
         text = re.sub(r"<!-- USER_NOTES_START -->.*?<!-- USER_NOTES_END -->", "", text, flags=re.S)
         sections, headings = {}, []
@@ -317,12 +328,29 @@ class Workspace:
                 sections[name] = []
             elif headings:
                 sections[headings[-1]].append(line)
-        # Older workspaces can still open and save their original Markdown.
         required = [s for s in self.config["required_note_sections"] if s != "原文证据"]
+        # An existing note keeps its original layout until it is actually migrated.
+        old_titles = {"摘要": "摘要中译", "结论": "结论中译"}
+        if ("关键词" in required and not meta.get("note_format_version")
+                and set(old_titles.values()).issubset(headings)
+                and {"摘要", "结论", "关键词"}.isdisjoint(headings)):
+            required = [old_titles.get(s, s) for s in required if s != "关键词"]
+        bilingual = "关键词" in required and "摘要" in required and "结论" in required
         for name in required:
             body = "\n".join(sections.get(name, [])).strip()
             if not body or PLACEHOLDER.search(body):
                 errors.append(f"未完成章节「{name}」")
+            elif bilingual and name in old_titles:
+                absent = ("原文未提供摘要。" if name == "摘要" else "原文未提供结论或讨论总结段。")
+                if body == absent or f"原文未提供英文{name}。" in body:
+                    continue
+                pair = ORIGINAL_DISCLOSURE.fullmatch(body)
+                if (not pair or not re.search(r"[\u3400-\u9fff]", pair["translation"])
+                        or not re.search(r"[A-Za-z]", pair["original"])):
+                    errors.append(f"「{name}」请先写中文，再用“英文原文”折叠区保留对应原文。")
+            elif bilingual and name == "关键词":
+                if not re.search(r"[A-Za-z]", body) and "原文未提供英文关键词。" not in body:
+                    errors.append("关键词请照录作者英文，缺少时写“原文未提供英文关键词。”")
         if FIGURE_SECTION in required:
             ordered = headings[:len(required) - 1] == required[:-1] and headings[-1:] == required[-1:]
             if not ordered or any(headings.count(name) > 1 for name in required):
@@ -334,6 +362,7 @@ class Workspace:
             decision = re.search(r"(?:你|您|用户|读者)(?:的|已|来|自行|另行)?(?:决定|确认|选择)", figure)
             if not has_figure and not decision:
                 errors.append("主方法框架图需嵌入本篇作者原图，缺图时请说明情况并标记“待你决定”。")
+        errors.extend(self.link_errors(path, require_inventory=bilingual))
         return errors
 
     def status(self, pid, reading=None, verification=None, user_confirmed=False):
@@ -481,10 +510,13 @@ class Workspace:
         (self.project / "catalog.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         return {"papers": len(papers), "artifacts": len(artifacts)}
 
-    def link_errors(self, path):
+    def link_errors(self, path, require_inventory=False):
         errors = []
+        resource_ids = set()
         for _, quoted, plain in NOTE_LINK.findall(path.read_text(encoding="utf-8-sig")):
             target = quoted or plain
+            if target.startswith("#res-"):
+                resource_ids.add(target[5:])
             if target.startswith(("#", "http://", "https://", "mailto:", "data:")):
                 continue
             target = unquote(target.split("#", 1)[0])
@@ -497,6 +529,8 @@ class Workspace:
                 errors.append(f"Permanent records must not reference temporary files: {target}")
             elif not resolved.exists():
                 errors.append(f"Broken local link: {target}")
+        if path.name == "close-reading.md" and path.parent.parent == self.papers:
+            errors.extend(validate_resource_catalog(path.parent, resource_ids, require_inventory))
         return errors
 
     def check(self):

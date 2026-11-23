@@ -114,7 +114,8 @@ class DesktopAPI:
         if not project and not self._notes:
             return {"ok": True, "papers": []}
         ws = self._project(project).workspace
-        return {"ok": True, "papers": [note_summary(ws, ws.paper(pid)) for pid in ws.ids()]}
+        return {"ok": True, "papers": [note_summary(ws, ws.paper(pid)) for pid in ws.ids()],
+                "question_titles": ws.question_titles()}
 
     @guarded
     def read_note(self, project, pid):
@@ -186,6 +187,28 @@ class DesktopAPI:
     @guarded
     def open_project_folder(self, project):
         os.startfile(str(self._project(project).root))
+        return {"ok": True}
+
+    def request_exit(self):
+        if not self._window:
+            return {"ok": False, "error": "桌面窗口尚未就绪。"}
+        self._closing()
+        return {"ok": True}
+
+    def set_title_theme(self, theme):
+        if theme not in ("topaz", "light"):
+            return {"ok": False, "error": "未知的阅读主题。"}
+        native = getattr(self._window, "native", None)
+        if native is None:
+            return {"ok": True}
+        from webview.platforms.winforms import DwmSetWindowAttribute
+        handle = native.Handle.ToInt64()
+        dark = int(theme == "topaz")
+        # Older Windows 10 builds use 19. Caption color is available on Windows 11.
+        if DwmSetWindowAttribute(handle, 20, dark) != 0:
+            DwmSetWindowAttribute(handle, 19, dark)
+        color = 0x493B34 if dark else 0xEFF5F4  # COLORREF for the navigation bar's surface.
+        DwmSetWindowAttribute(handle, 35, color)
         return {"ok": True}
 
     @guarded
@@ -314,7 +337,7 @@ def main():
             from pypdf import PdfReader
             report["pdf_import"] = True
             report["required_assets"] = all((ASSETS / name).is_file() for name in (
-                "index.html", "reader.mjs", "mapping.mjs", "reader.css",
+                "index.html", "reader.mjs", "mapping.mjs", "reader.css", "study.mjs", "study.css",
                 "desktop-ui.mjs", "desktop.css", "theme.css", "vendor/blue-topaz/theme.css", "vendor/katex/katex.min.js",
                 "vendor/dompurify/purify.min.js", "vendor/marked/marked.esm.js"))
         except Exception as error:
@@ -336,18 +359,11 @@ def main():
         except (AttributeError, OSError):
             pass
         import webview
-        from webview.menu import Menu, MenuAction
         window_state = state.data.get("window", {})
         window = webview.create_window(APP_NAME, f"http://127.0.0.1:{server.server_port}/",
             js_api=api, width=max(900, min(1600, int(window_state.get("width", 1280)))),
             height=max(620, min(1100, int(window_state.get("height", 820)))),
-            min_size=(820, 560), text_select=True, background_color="#2e3440",
-            menu=[Menu("项目", [MenuAction("打开已有项目…", lambda: window.evaluate_js(
-                                    "document.getElementById('choose-project')?.click()")),
-                                MenuAction("打开项目文件夹", lambda: api.open_project_folder(str(api._notes.root)) if api._notes else None),
-                                MenuAction("退出", lambda: window.destroy())]),
-                  Menu("帮助", [MenuAction("关于精读笔记库", lambda: window.create_confirmation_dialog(
-                      "关于", f"精读笔记库 {VERSION}\n本地 Markdown · Zotero 原文阅读\n研究资料保留在所选项目目录。"))])])
+            min_size=(820, 560), text_select=True, background_color="#2e3440")
         api._window = window
         window.events.closing += api._closing
         webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True

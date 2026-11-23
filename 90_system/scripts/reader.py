@@ -13,19 +13,23 @@ from urllib.parse import unquote, urlsplit
 
 from literature import WorkspaceError, safe_path
 from desktop_store import MAX_NOTE
+from paper_resources import resource_catalog
 
 ASSETS = Path(__file__).resolve().parents[1] / "reader"
 PID = re.compile(r"P\d{4,}")
 
 
 def note_summary(ws, meta):
-    note = safe_path(ws.papers / meta["paper_id"], meta["note_path"])
+    directory = ws.papers / meta["paper_id"]
+    note = safe_path(directory, meta["note_path"])
     return {"id": meta["paper_id"], "title": meta["title"], "year": meta.get("year"),
             "authors": meta.get("authors", []), "tags": meta.get("tags", []),
             "research_questions": meta.get("research_questions", []),
             "reading_status": meta["reading_status"],
             "verification_status": meta["verification_status"],
-            "updated_at": meta.get("updated_at"), "note": note.read_text(encoding="utf-8")}
+            "journal": (meta.get("publication") or {}).get("journal", ""),
+            "resources": resource_catalog(directory),
+            "updated_at": meta.get("updated_at"), "note": note.read_text(encoding="utf-8-sig")}
 
 
 def zotero_links(meta):
@@ -95,6 +99,7 @@ def paper_detail(ws, pid):
             "research_questions": meta.get("research_questions", []),
             "note_path": str(note), "zotero": zotero_links(meta),
             "note_hash": hashlib.sha256(note_bytes).hexdigest(),
+            "resources": resource_catalog(ws.papers / pid),
             "current_version": meta["source"]["current_version"],
             "note": markdown}
 

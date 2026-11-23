@@ -2,7 +2,7 @@ import {marked} from "./vendor/marked/marked.esm.js";
 import {splitNote} from "./mapping.mjs";
 
 const $ = id => document.getElementById(id);
-const state = {papers: [], paper: null, request: 0, mode: "read", ui: {positions: {}}};
+const state = {papers: [], paper: null, request: 0, mode: "read", view: "reading", ui: {positions: {}}};
 const labels = {queued: "待阅读", skimmed: "已速读", deep_read: "已精读", skipped: "已跳过"};
 const verification = {reviewed: "用户已核对", partial: "部分核对", unreviewed: "用户待核对"};
 const scroll = $("note-scroll");
@@ -88,7 +88,7 @@ function renderLibrary() {
   $("reset-filters").hidden = !state.papers.length;
 }
 function rememberPosition() {
-  if (!state.paper || state.mode !== "read") return;
+  if (!state.paper || state.mode !== "read" || state.view !== "reading") return;
   const id = state.paper.id;
   state.ui.positions ??= {};
   state.ui.positions[id] = scroll.scrollTop;
@@ -98,7 +98,7 @@ function positionFor(id) {
   return Number(state.ui.positions?.[id]) || 0;
 }
 function trackLocation() {
-  const reading = state.mode === "read" && !!state.paper;
+  const reading = state.mode === "read" && state.view === "reading" && !!state.paper;
   const extent = scroll.scrollHeight - scroll.clientHeight;
   const percent = reading && extent > 0 ? Math.min(100, Math.round(100 * scroll.scrollTop / extent)) : 0;
   $("progress-fill").style.transform = "scaleX(" + percent / 100 + ")";
@@ -176,6 +176,11 @@ function prepareBody(section, paper) {
   }
   for (const link of body.querySelectorAll("a")) {
     const href = link.getAttribute("href") || "";
+    if (/^#res-[a-z0-9][a-z0-9-]*$/.test(href)) {
+      link.classList.add("resource-link");
+      link.title = "在旁边对照阅读";
+      continue;
+    }
     const image = imageUrl(href, paper.id);
     if (image) link.href = image;
     else if (paper.versions.some(v => v.file === href)) {
@@ -196,29 +201,30 @@ function renderNotes() {
   sectionNodes = [];
   activeSection = null;
   for (const section of sections) {
+    const title = ({"摘要中译":"摘要", "结论中译":"结论"})[section.title] || section.title;
     const card = document.createElement("section");
     card.id = section.id;
     card.className = "note-section";
     if (section.intro) card.classList.add("note-intro");
-    if (section.title === "摘要中译") card.classList.add("note-summary");
+    if (title === "摘要") card.classList.add("note-summary");
     if (!section.body) card.classList.add("section-heading");
     const body = prepareBody(section, paper);
     if (section.intro) {
       const details = document.createElement("details"), summary = document.createElement("summary");
-      summary.textContent = section.title;
+      summary.textContent = title;
       details.append(summary, body);
       card.append(details);
     } else {
       const heading = document.createElement(section.level === 3 ? "h3" : "h2");
-      heading.textContent = section.title;
+      heading.textContent = title;
       card.append(heading, body);
     }
     const button = document.createElement("button");
     button.className = "outline-link" + (section.level === 3 ? " sub" : "");
-    button.textContent = section.title;
+    button.textContent = title;
     button.onclick = () => goToSection(card.id);
     $("outline").append(button);
-    $("outline-select").append(new Option(section.title, section.id));
+    $("outline-select").append(new Option(title, section.id));
     $("note-content").append(card);
     sectionNodes.push({card, button});
   }
@@ -294,18 +300,24 @@ function clearPaper() {
   if ($("editor-panel")) $("editor-panel").hidden = true;
   if ($("recovery-banner")) $("recovery-banner").hidden = true;
   setMode("read");
+  window.readerDesktop?.paperChanged?.();
   document.title = "精读笔记库";
 }
 async function refresh() {
   const request = ++catalogRequest;
   rememberPosition();
-  const papers = await window.readerDesktop.listPapers();
+  const catalog = await window.readerDesktop.listPapers();
   if (request !== catalogRequest) return;
+  const papers = Array.isArray(catalog) ? catalog : catalog.papers;
+  state.questionTitles = catalog.question_titles || {};
   state.papers = papers;
+  window.readerDesktop?.catalogChanged?.();
   for (const [id, field, title] of [["rq-filter", "research_questions", "全部问题"], ["tag-filter", "tags", "全部标签"]]) {
     const select = $(id), previous = select.value;
     const values = [...new Set(papers.flatMap(p => p[field]))].sort();
-    select.replaceChildren(new Option(title, ""), ...values.map(v => new Option(v, v)));
+    const label = value => field === "research_questions" && state.questionTitles[value]
+      ? value + " · " + state.questionTitles[value] : value;
+    select.replaceChildren(new Option(title, ""), ...values.map(v => new Option(label(v), v)));
     select.value = values.includes(previous) ? previous : "";
   }
   renderLibrary();
@@ -317,6 +329,7 @@ async function refresh() {
 function settings() {
   const theme = state.ui.theme === "light" ? "light" : "topaz";
   document.documentElement.dataset.theme = theme;
+  window.readerDesktop?.titleTheme?.(theme);
   $("topaz-theme").disabled = theme !== "topaz";
   $("theme-setting").value = theme;
   const size = Math.max(13, Math.min(24, Number(state.ui.font_size) || 16));
@@ -364,6 +377,8 @@ $("width-setting").onchange = event => { state.ui.reading_width = event.target.v
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && document.body.classList.contains("library-open")) $("library-back").click();
   if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey || document.querySelector("dialog[open]") || event.target.closest("input,textarea,select,[contenteditable=true]")) return;
+  if (state.view === "resources") { event.preventDefault(); $("resource-search").focus(); return; }
+  if (state.view !== "reading") return;
   event.preventDefault();
   if (state.ui.focus) { state.ui.focus = false; saveSettings(); }
   if (matchMedia("(max-width:720px)").matches) mobileLibrary(true);
@@ -377,4 +392,4 @@ scroll.addEventListener("scroll", () => {
 addEventListener("resize", scheduleLocation);
 addEventListener("beforeunload", rememberPosition);
 
-export {state, loadPaper, refresh, setMode, renderMarkdown, renderNotes, imageUrl, notice, rememberPosition, settings};
+export {state, loadPaper, refresh, setMode, renderMarkdown, renderNotes, imageUrl, notice, rememberPosition, settings, renderLibrary, mobileLibrary, labels};

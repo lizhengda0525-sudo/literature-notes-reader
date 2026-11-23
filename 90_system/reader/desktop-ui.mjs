@@ -1,8 +1,9 @@
 import {state,loadPaper,refresh,setMode,renderMarkdown,renderNotes,imageUrl,notice,rememberPosition,settings} from './reader.mjs';
+import {initStudyViews} from './study.mjs';
 
 const $=id=>document.getElementById(id);
 const edit={base:'',original:'',dirty:false,project:null,loading:false,saving:false,importing:false,ignoreGuard:false};
-let api,status,lastSignature='',uiTimer,draftTimer,previewTimer,pollBusy=false,mode='read';
+let api,status,study,titleTheme,lastSignature='',uiTimer,draftTimer,previewTimer,pollBusy=false,mode='read';
 const el=(tag,attributes={},text='')=>{const item=document.createElement(tag);for(const[k,v]of Object.entries(attributes))item.setAttribute(k,v);item.textContent=text;return item;};
 async function call(name,...args){const result=await api[name](...args);if(result?.ok===false&&!result.conflict)throw new Error(result.error||'操作未完成。');return result;}
 function banner(text,kind='info'){$('desktop-banner').textContent=text;$('desktop-banner').hidden=!text;$('desktop-banner').dataset.kind=kind;}
@@ -38,7 +39,11 @@ function preview(){
     if(src) img.src = src;
     else img.removeAttribute('src');
   }
-  for(const link of body.querySelectorAll('a')){const href=link.getAttribute('href')||'';if(!/^https?:/.test(href))link.removeAttribute('href');}
+  for(const link of body.querySelectorAll('a')){
+    const href=link.getAttribute('href')||'';
+    if(/^#res-[a-z0-9][a-z0-9-]*$/.test(href)) link.classList.add('resource-link');
+    else if(!/^https?:/i.test(href)) link.removeAttribute('href');
+  }
 }
 function showMode(value){
   mode=value;setMode(value);
@@ -104,11 +109,13 @@ async function save(){
 }
 async function adoptProject(value){
   if(value.cancelled)return;
-  status=value;edit.project=value.project;state.ui={positions:{},...value.ui};state.paper=null;
+  status=value;edit.project=value.project;state.ui={positions:{},...value.ui};state.paper=null;state.papers=[];
   ++state.request;clearTimeout(draftTimer);clearTimeout(previewTimer);clearTimeout(uiTimer);
-  mode='read';edit.ignoreGuard=true;setDirty(false);settings();
+  mode='read';edit.ignoreGuard=true;setDirty(false);study.projectChanged();study.catalogChanged();showMode('read');settings();
   $('library-search').value='';$('status-filter').value='';$('tag-filter').value='';$('rq-filter').value='';
   $('project-name').textContent=value.name;$('project-name').title=value.project||'';
+  $('open-project-folder').disabled=!value.project;
+  $('about-version').textContent='版本 ' + value.version + ' · Windows';
   $('welcome-panel').hidden=!!value.project;
   $('note-editor').value='';$('edit-preview').replaceChildren();
   $('recent-projects').replaceChildren(new Option('最近项目',''),...value.recent.map(p=>new Option(p,p)));
@@ -132,11 +139,6 @@ async function poll(){
 }
 function buildUi(){
   document.body.classList.add('desktop-app');
-  const header=document.querySelector('.workspace-tools');
-  const project=el('button',{id:'choose-project'},'打开项目…');
-  const recent=el('select',{id:'recent-projects','aria-label':'最近项目'});
-  const name=el('span',{id:'project-name'});
-  header.append(project, recent, name);
   const toolbar=document.querySelector('.note-toolbar .segmented');toolbar.append(el('button',{id:'mode-edit','aria-pressed':'false',disabled:''},'编辑 MD'));
   const saveButton=el('button',{id:'save-note',disabled:''},'保存 · Ctrl+S');document.querySelector('.actions').append(saveButton);
   const statusElement=el('span',{id:'save-status'},'已保存到 MD');document.querySelector('.note-pane footer').append(statusElement);
@@ -150,12 +152,32 @@ function buildUi(){
 }
 function bindEditor(){
   buildUi();
-  window.readerDesktop={beforeNavigate,loaded,persistUi,snapshot,
+  study=initStudyViews(()=>showMode('read'));
+  window.readerDesktop={beforeNavigate,persistUi,snapshot,
+    loaded:async paper=>{await loaded(paper);study.paperChanged();},
+    catalogChanged:study.catalogChanged,paperChanged:study.paperChanged,
+    titleTheme:theme=>{
+      if(theme===titleTheme||typeof api.set_title_theme!=='function')return;
+      titleTheme=theme;call('set_title_theme',theme).catch(()=>{titleTheme=null;});
+    },
     readPaper: id=>call('read_note',edit.project,id),
-    listPapers: async()=>(await call('list_papers',edit.project)).papers
+    listPapers: ()=>call('list_papers',edit.project)
   };
   $('choose-project').onclick=chooseProject;$('welcome-open').onclick=chooseProject;
-  $('recent-projects').onchange=async event=>{if(!event.target.value||!(await beforeNavigate()))return;try{await adoptProject(await call('reopen_project',event.target.value));}catch(error){notice(error);}};
+  $('recent-projects').onchange=async event=>{
+    const path=event.target.value;event.target.value='';$('workspace-menu').open=false;
+    if(!path||!(await beforeNavigate()))return;
+    try{await adoptProject(await call('reopen_project',path));}catch(error){notice(error);}
+  };
+  $('open-project-folder').onclick=()=>call('open_project_folder',edit.project).catch(notice);
+  $('about-app').onclick=()=>$('about-dialog').showModal();
+  $('exit-app').onclick=()=>call('request_exit').catch(notice);
+  const menu=$('workspace-menu');
+  menu.addEventListener('click',event=>{if(event.target.closest('button'))menu.open=false;});
+  document.addEventListener('pointerdown',event=>{if(menu.open&&!menu.contains(event.target))menu.open=false;});
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}
+  });
   $('mode-edit').onclick=()=>showMode('edit');$('mode-read').onclick=()=>showMode('read');
   $('save-note').onclick=save;
   bindImages();
@@ -168,8 +190,16 @@ function bindEditor(){
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();save();}});
   document.addEventListener('click',event=>{
     const link=event.target.closest('a');if(!link)return;
-    const href=link.href;if(!href)return;event.preventDefault();
-    if(href.startsWith(location.origin+'/paper/')&&/\.(png|jpe?g|webp)$/i.test(href)){$('note-image').src=href;$('image-dialog').showModal();}
+    const target=link.getAttribute('href');if(!target)return;event.preventDefault();
+    if(/^#res-[a-z0-9][a-z0-9-]*$/.test(target) && state.paper){
+      study.openReference(state.paper.id,target.slice(5),link).catch(notice);
+      return;
+    }
+    const href=link.href;
+    if(href.startsWith(location.origin+'/paper/')&&/\.(png|jpe?g|webp)$/i.test(href)){
+      $('note-image').alt=link.querySelector('img')?.alt||'论文原图';
+      $('note-image').src=href;$('image-dialog').showModal();
+    }
     else call('open_link',href).catch(notice);
   });
 }

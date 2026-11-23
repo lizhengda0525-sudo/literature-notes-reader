@@ -10,21 +10,37 @@
   <link rel="stylesheet" href="/assets/reader.css">
   <link rel="stylesheet" href="/assets/desktop.css">
   <link rel="stylesheet" href="/assets/theme.css">
+  <link rel="stylesheet" href="/assets/study.css">
   <script defer src="/assets/vendor/katex/katex.min.js"></script>
   <script defer src="/assets/vendor/dompurify/purify.min.js"></script>
   <script type="module" src="/assets/desktop-ui.mjs"></script>
 </head>
-<body>
+<body data-view="reading">
 <header class="app-bar">
-  <div class="brand"><span class="book-mark" aria-hidden="true"></span><h1>精读笔记库</h1></div>
-  <div class="workspace-tools"></div>
+  <div class="brand"><span class="book-mark" aria-hidden="true"></span><span id="project-name">文献阅读</span></div>
+  <nav class="view-tabs" aria-label="工作区">
+    <button id="tab-reading" data-view="reading" aria-current="page">阅读</button>
+    <button id="tab-resources" data-view="resources">资料库</button>
+    <button id="tab-workbench" data-view="workbench">工作台</button>
+  </nav>
   <div class="reader-tools">
     <button id="focus-reading" aria-pressed="false">专注阅读</button>
-    <button id="reading-settings" title="阅读设置"><span aria-hidden="true">Aa</span> 阅读设置</button>
-    <button id="refresh" title="重新读取本地笔记"><span aria-hidden="true">↻</span> 刷新</button>
+    <button id="reading-settings" title="阅读设置" aria-label="阅读设置">Aa</button>
+    <details id="workspace-menu">
+      <summary aria-label="更多操作" title="更多操作">•••</summary>
+      <div class="workspace-dropdown">
+        <button id="choose-project">打开项目…</button>
+        <select id="recent-projects" aria-label="最近项目"><option value="">最近项目</option></select>
+        <button id="open-project-folder">打开项目文件夹</button>
+        <button id="refresh">刷新资料</button>
+        <hr>
+        <button id="about-app">关于精读笔记库</button>
+        <button id="exit-app">退出软件</button>
+      </div>
+    </details>
   </div>
 </header>
-<main>
+<main id="reading-view">
   <aside class="library" id="library" aria-label="全部论文笔记">
     <div class="library-head"><h2>论文库</h2><span id="library-count"></span><button id="library-back">返回笔记</button></div>
     <div class="library-tools">
@@ -47,7 +63,8 @@
       <button id="library-toggle" aria-controls="library" aria-expanded="false">论文库</button>
       <div class="segmented"><button id="mode-read" class="active" aria-pressed="true">精读笔记</button></div>
       <select id="outline-select" aria-label="跳到笔记章节"><option value="">本篇目录</option></select>
-      <div class="actions"><button id="zotero-link" disabled>打开 Zotero</button><button id="open-note" disabled>打开 Markdown 文件 ↗</button></div>
+      <button id="compare-resources" aria-controls="reference-pane" aria-expanded="false" disabled>资料对照</button>
+      <div class="actions"><button id="zotero-link" disabled>打开 Zotero</button><button id="open-note" title="用本机编辑器打开 Markdown 文件" disabled>打开 Markdown ↗</button></div>
     </div>
     <div class="progress-track" aria-hidden="true"><div id="progress-fill"></div></div>
     <div id="note-scroll" tabindex="0" aria-label="笔记正文">
@@ -70,7 +87,39 @@
     <div class="outline-head"><h2>本篇目录</h2><span id="scroll-percent"></span></div>
     <nav id="outline" aria-label="笔记章节"></nav>
   </aside>
+  <aside id="reference-pane" aria-labelledby="reference-heading" hidden>
+    <div class="reference-top"><h2 id="reference-heading">资料对照</h2><button id="close-reference" title="关闭对照，返回正文" aria-label="关闭资料对照">×</button></div>
+    <select id="reference-select" aria-label="选择本篇资料"></select>
+    <div id="reference-body" aria-live="polite"></div>
+    <div class="reference-footer"><button id="reference-prev" aria-label="上一项资料">←</button><span id="reference-position"></span><button id="reference-next" aria-label="下一项资料">→</button><button id="reference-library">本篇资料库</button></div>
+  </aside>
 </main>
+<section id="resources-view" class="study-view" aria-labelledby="resources-heading" hidden>
+  <div class="study-page">
+    <header class="page-heading"><h1 id="resources-heading">资料库</h1><p id="resource-total"></p></header>
+    <div class="resource-filters" aria-label="筛选资料">
+      <input type="search" id="resource-search" aria-label="搜索资料" placeholder="搜索题名、编号、论文…">
+      <select id="resource-paper" aria-label="按论文筛选"><option value="">全部论文</option></select>
+      <select id="resource-scope" aria-label="按来源筛选"><option value="">全部来源</option><option value="main">正文</option><option value="supplement">补充材料</option></select>
+    </div>
+    <div class="resource-types" id="resource-kinds" role="group" aria-label="按资料类型筛选">
+      <button data-kind="" aria-pressed="true">全部</button><button data-kind="figure" aria-pressed="false">图</button><button data-kind="table" aria-pressed="false">表</button><button data-kind="equation" aria-pressed="false">公式</button>
+    </div>
+    <div id="source-coverage"></div>
+    <div id="resource-results"></div>
+  </div>
+</section>
+<section id="workbench-view" class="study-view" aria-labelledby="workbench-heading" hidden>
+  <div class="study-page">
+    <header class="page-heading"><h1 id="workbench-heading">工作台</h1><p id="workbench-project"></p></header>
+    <div id="workbench-content"></div>
+  </div>
+</section>
+<dialog id="about-dialog" aria-labelledby="about-title">
+  <h2 id="about-title">精读笔记库</h2>
+  <p id="about-version"></p><p>在本机阅读、对照论文资料并编辑 Markdown 笔记。</p>
+  <form method="dialog" class="dialog-actions"><button>关闭</button></form>
+</dialog>
 <dialog id="settings-dialog" aria-labelledby="settings-title">
   <h2 id="settings-title">阅读设置</h2>
   <label>阅读主题 <select id="theme-setting"><option value="topaz">Blue Topaz 暗色</option><option value="light">浅色</option></select></label>

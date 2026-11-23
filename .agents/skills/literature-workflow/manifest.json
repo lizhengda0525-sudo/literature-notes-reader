@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "agents/openai.yaml",
-      "sha256": "3440acf71522d721306f22159078501d27fa1d277bca2e2511debdf2aa15c084"
+      "sha256": "99b51631680ab517a2f2c972c6e8c534e3467c8144685018c8d003f64775c779"
     },
     {
       "path": "licenses/Delores-MIT.txt",
@@ -28,7 +28,7 @@
     },
     {
       "path": "references/reading.md",
-      "sha256": "c50a0f0e8bd2a7c5dcbfb3b45034b0ff28bc0eaefe7f464aeb62731fe47f2be9"
+      "sha256": "59e143b50b046a81900792f0b6b1a7cb95ea10a40f2b9ca988c31e6740217b77"
     },
     {
       "path": "references/search-and-citations.md",
@@ -40,7 +40,7 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "3d844aa5b9f96efef5044fdf4bfef0ee20881820ef26f1c066bbb3e95695caab"
+      "sha256": "417c3b756c4b5ce60860c8f3901b5a7ac02c299562e798427c146747c8f68f3f"
     },
     {
       "path": "sources.json",

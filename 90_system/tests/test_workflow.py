@@ -67,12 +67,23 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         chunks = [f"# {pid} TEST NOTE"]
         for heading in self.ws.config["required_note_sections"]:
             chunks.extend(["", f"## {heading}"])
-            chunks.append(figure if heading == "主方法框架图" else "Synthetic analysis.")
+            if heading in ("摘要", "结论"):
+                chunks.extend(["研究讨论了时间序列。", "<details>", "<summary>英文原文</summary>",
+                               "", "We studied time series.", "", "</details>"])
+            else:
+                chunks.append(figure if heading == "主方法框架图" else "Synthetic analysis.")
             if heading == "精读笔记":
                 chunks.extend(["### 我的想法与疑问", "<!-- USER_NOTES_START -->",
                                "## TODO Keep my own heading and words.", "<!-- USER_NOTES_END -->"])
         path = self.root / "20_papers" / pid / meta["note_path"]
         path.write_text("\n".join(chunks) + "\n", encoding="utf-8")
+        dump(path.with_name("resources.json"), {
+            "schema_version": 1,
+            "sources": [{"id": "main", "label": "正文", "scope": "main", "status": "available",
+                         "file": "source.pdf"},
+                        {"id": "appendix", "label": "补充材料", "scope": "supplement", "status": "none"}],
+            "items": [],
+        })
         return path
 
     def ready_review(self, pids):
@@ -192,12 +203,50 @@ class WorkspaceBehaviorTests(unittest.TestCase):
         pid = self.add()
         note = self.finish_note(pid)
         good = note.read_text("utf-8")
-        for bad in (good.replace("## 摘要中译", "## temp").replace("## 结论中译", "## 摘要中译").replace("## temp", "## 结论中译"),
+        for bad in (good.replace("## 摘要", "## temp").replace("## 结论", "## 摘要").replace("## temp", "## 结论"),
                     good + "\n## extra\nExtra\n"):
             note.write_text(bad, "utf-8")
             self.assertTrue(self.ws.note_complete(pid))
         note.write_text(good, "utf-8")
         self.assertEqual(self.ws.note_complete(pid), [])
+
+    def test_bilingual_note_checks_both_languages_author_terms_and_missing_sources(self):
+        pid = self.add()
+        note = self.finish_note(pid)
+        good = note.read_text("utf-8")
+        for bad in (good.replace("We studied time series.", ""),
+                    good.replace("研究讨论了时间序列。", ""),
+                    good.replace("<summary>英文原文</summary>", "<summary>图表</summary>"),
+                    good.replace("## 关键词\nSynthetic analysis.", "## 关键词\n自选标签")):
+            with self.subTest(body=bad):
+                note.write_text(bad, "utf-8")
+                self.assertTrue(self.ws.note_complete(pid))
+        missing = good.replace("## 关键词\nSynthetic analysis.", "## 关键词\n原文未提供英文关键词。")
+        start, end = missing.index("## 结论\n"), missing.index("## 精读笔记\n")
+        note.write_text(missing[:start] + "## 结论\n原文未提供结论或讨论总结段。\n\n" + missing[end:], "utf-8")
+        self.assertEqual(self.ws.note_complete(pid), [])
+        note.with_name("resources.json").unlink()
+        self.assertTrue(self.ws.note_complete(pid))
+
+    def test_existing_translated_notes_still_validate_after_workspace_upgrade(self):
+        pid = self.add()
+        folder = self.ws.papers / pid
+        meta = self.ws.paper(pid)
+        del meta["note_format_version"]
+        dump(folder / "paper.json", meta)
+        self.ws.config["required_note_sections"] = ["论文信息", "摘要中译", "主方法框架图", "结论中译",
+                                                   "精读笔记", "与动态脑网络建模的联系"]
+        self.finish_note(pid)
+        (folder / "resources.json").unlink()
+        self.ws = Workspace(self.root)
+        self.assertEqual(self.ws.note_complete(pid), [])
+
+    def test_resource_anchor_is_resolved_in_its_own_paper(self):
+        pid = self.add()
+        note = self.finish_note(pid)
+        with note.open("a", encoding="utf-8") as stream:
+            stream.write("\n[式 (5)](#res-eq-5)\n")
+        self.assertTrue(any("eq-5" in error for error in self.ws.note_complete(pid)))
 
     def test_broken_note_image_is_detected(self):
         pid = self.add()

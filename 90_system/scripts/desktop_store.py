@@ -13,7 +13,7 @@ import threading
 
 from literature import Workspace, WorkspaceError, temporary_path
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 MAX_NOTE = 2 * 1024 * 1024
 MAX_IMAGE = 8 * 1024 * 1024
 
@@ -227,10 +227,13 @@ class NoteStore:
     def signature(self):
         if not self.root.is_dir():
             raise OSError("项目目录暂时无法访问，请重新连接项目盘。")
-        result = []
+        questions = (self.workspace.project / "questions.md").stat()
+        result = [["questions.md", questions.st_mtime_ns, questions.st_size]]
         for pid in self.workspace.ids():
-            for name in ("paper.json", "close-reading.md"):
+            for name in ("paper.json", "close-reading.md", "resources.json"):
                 path = self.root / "20_papers" / pid / name
+                if name == "resources.json" and not path.exists():
+                    continue
                 stat = path.stat()
                 result.append([pid, name, stat.st_mtime_ns, stat.st_size])
         return fingerprint(json.dumps(result).encode("utf-8"))
