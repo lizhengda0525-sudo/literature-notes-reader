@@ -11,15 +11,19 @@
   --ease-out: cubic-bezier(.2,.76,.23,1); --spring: cubic-bezier(.2,.88,.26,1.12);
 }
 :root[data-theme=topaz] {
-  --canvas: #1d2429; --glass-rgb: 43 54 61;
-  --paper: #222b31; --surface: #29343a; --raised: #344249; --ink: #eff5f4; --quiet: #b1c4c5;
-  --line: #425356; --green: #91ddc8; --amber: #f0bd92; --soft-accent: #314b48; --selection: #355952;
-  --glass-edge: #a2beb944; --shine: #edfaff19; --ambient: #293e40; --ambient-end: #333948;
+  --canvas: var(--bg-color-primary); --glass-rgb: 59 66 82;
+  --paper: var(--bg-color-primary); --surface: var(--bg-color-secondary); --raised: var(--bg-color-tertiary);
+  --ink: var(--text-color-primary); --quiet: var(--text-color-muted);
+  --line: var(--border-color); --green: var(--accent-cyan); --amber: var(--accent-yellow);
+  --soft-accent: var(--hover-bg); --selection: var(--selection-bg);
+  --glass-edge: var(--border-color); --shine: #eceff419;
   --float-shadow: 0 6px 20px #080e112e, 0 1px 3px #080d113d;
 }
 html, body[data-view] {background-color:var(--canvas);color:var(--ink)}
 body[data-view] {
   font-family:var(--ui-font);
+}
+:root[data-theme=light] body[data-view] {
   background-image:radial-gradient(ellipse at 10% -18%,var(--ambient),transparent 51%),
     radial-gradient(ellipse at 92% -26%,var(--ambient-end),transparent 56%);
 }
@@ -36,6 +40,7 @@ body[data-view] .app-bar {
 .app-bar .reader-tools {justify-self:end;margin:0}
 .app-bar .brand {border:0;padding:0;margin-right:4px}
 .app-bar .book-mark {width:27px;height:27px;border-radius:9px;background:linear-gradient(145deg,#277a6d,#125a52);box-shadow:inset 0 1px 0 #ffffff48}
+[data-theme=topaz] .app-bar .book-mark {background:var(--raised)}
 .app-bar .book-mark::before,.app-bar .book-mark::after,[data-theme=topaz] .app-bar .book-mark::before,[data-theme=topaz] .app-bar .book-mark::after {background:#e4f8ed}
 .app-bar #project-name {font-weight:650;color:var(--ink);letter-spacing:.01em}
 .app-bar .view-tabs,.app-bar .reader-tools,.app-bar #library-toggle,.workspace-dropdown,dialog[open] {
@@ -137,12 +142,12 @@ body .note-toolbar .segmented {background:var(--surface);border:1px solid var(--
 .reading-heading {margin-bottom:20px;padding-bottom:20px}
 #paper-id {color:var(--green);border-color:var(--line)}
 #reading-page #paper-edition,.paper-kicker,#reading-page #paper-byline {color:var(--quiet)}
-#reading-page #paper-title {font:550 clamp(31px,3.15vw,55px)/1.09 var(--display-font);letter-spacing:-.032em;color:var(--ink);margin:12px 0;padding:0;border:0;text-wrap:pretty}
+[data-theme=light] #reading-page #paper-title {font:550 clamp(31px,3.15vw,55px)/1.09 var(--display-font);letter-spacing:-.032em;color:var(--ink);margin:12px 0;padding:0;border:0;text-wrap:pretty}
 .heading-actions {margin-top:13px;gap:6px}
 .heading-actions button {background:var(--surface);color:var(--quiet);border-color:var(--line);font-size:11px}
 body .note-section {color:var(--ink)}
-body .note-section :is(h2,h3) {font-family:var(--ui-font);color:var(--ink);border:0;padding:0;letter-spacing:-.015em}
-body .note-summary {background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:15px 19px}
+[data-theme=light] .note-section :is(h2,h3) {font-family:var(--ui-font);color:var(--ink);border:0;padding:0;letter-spacing:-.015em}
+[data-theme=light] .note-summary {background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:15px 19px}
 .note-section table th {background:var(--surface)}
 .note-pane footer {background:var(--paper);color:var(--quiet)}
 .note-section details[open]>div {animation:reveal .18s var(--ease-out)}
@@ -160,6 +165,7 @@ body .study-view {margin:0 10px 9px;border:1px solid var(--line);border-radius:1
 .resource-list,.stats-grid,.workbench-panel,.resume-card {border:1px solid var(--line);border-radius:16px;overflow:hidden}
 .resource-row {padding:12px 15px;border-radius:0}
 .resume-card {padding:20px 23px;background:linear-gradient(115deg,var(--soft-accent),var(--surface) 85%)}
+[data-theme=topaz] .resume-card {background:var(--surface)}
 .metric:first-child,.metric {padding:16px}.metric {border-radius:0}
 .workbench-panel {background:var(--surface);padding:18px}
 .topic-chip {border-radius:15px}
@@ -201,7 +207,7 @@ dialog p {color:var(--quiet)}
   .has-reference:not(.editing-note) #reading-view {--right:0px;grid-template-rows:minmax(0,1.3fr) minmax(0,1fr)}
   #reading-view>#reference-pane {grid-area:2 / 2;padding:8px;margin:5px 0 0}
   .app-bar .view-tabs button {padding-inline:10px}
-  #reading-page #paper-title {font-size:clamp(27px,5vw,38px)}
+  [data-theme=light] #reading-page #paper-title {font-size:clamp(27px,5vw,38px)}
 }
 @media(max-width:510px) {
   .app-bar .brand,.app-bar .panel-switch>span+span {display:none}

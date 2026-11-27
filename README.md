@@ -2,7 +2,7 @@
 
 用于 Windows 的本地论文 Markdown 阅读和编辑软件。在 [Releases](https://github.com/lizhengda0525-sudo/literature-notes-reader/releases/latest) 获取安装版或免安装版。首次打开时选择含有 `90_system/workspace.json` 的已有文献工作区。
 
-- 在“编辑 MD”左侧写 Markdown，右侧查看实时排版，按 Ctrl+S 保存。“Aa”支持跟随系统、浅色、Blue Topaz 暗色，以及从透亮到浓实的导航材质。
+- 在“编辑 MD”左侧写 Markdown，右侧查看实时排版，按 Ctrl+S 保存。阅读与实时预览默认使用 Typora Blue Topaz 暗色配色和标题格式。“Aa”可选择浅色、跟随系统或调整导航材质。
 - 选择、粘贴或拖入 PNG、JPEG、WebP。每张图片最多 8 MB，存入当前论文的 `images/`，相同内容在本篇内复用。正式笔记 `20_papers/Pxxxx/close-reading.md` 通过相对路径引用图片。
 - 将论文导入本机 Zotero 后，打开项目中对应的笔记即可匹配。题名与作者或 DOI 唯一匹配时可直接打开原文。重名、多个 PDF 或独立附件可在“关联 Zotero”中查找并选择。题名下方可管理已有的关联。个人与群组文库均通过本机只读访问。
 - 顶栏“论文库”和“目录”可独立收起，宽窗口按项目记住布局，窄窗口可展开浮动侧栏。系统的减少动态效果和对比度设置也适用于阅读界面。

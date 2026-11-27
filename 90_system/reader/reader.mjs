@@ -384,7 +384,7 @@ async function refresh() {
 }
 
 function settings() {
-  const preference = ["light", "topaz"].includes(state.ui.theme) ? state.ui.theme : "system";
+  const preference = ["system", "light", "topaz"].includes(state.ui.theme) ? state.ui.theme : "topaz";
   const theme = preference === "system" ? (systemDark.matches ? "topaz" : "light") : preference;
   document.documentElement.dataset.theme = theme;
   window.readerDesktop?.titleTheme?.(theme);

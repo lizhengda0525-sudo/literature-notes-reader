@@ -210,7 +210,7 @@ class DesktopAPI:
         # Older Windows 10 builds use 19. Caption color is available on Windows 11.
         if DwmSetWindowAttribute(handle, 20, dark) != 0:
             DwmSetWindowAttribute(handle, 19, dark)
-        color = 0x29241D if dark else 0xF4F4ED  # COLORREF for the workspace canvas.
+        color = 0x40342E if dark else 0xF4F4ED  # COLORREF for the workspace canvas.
         DwmSetWindowAttribute(handle, 35, color)
         return {"ok": True}
 

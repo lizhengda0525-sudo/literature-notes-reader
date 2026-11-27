@@ -8,6 +8,10 @@
   background:var(--surface);color:var(--ink);border-color:var(--line);
 }
 [data-theme=topaz] .note-section {color:var(--ink);font-family:var(--font-family-sans)}
+[data-theme=topaz] #paper-title {color:var(--ink)}
+[data-theme=topaz] .note-section h2 {color:var(--accent-orange)}
+[data-theme=topaz] .note-section h3 {color:var(--accent-yellow)}
+[data-theme=topaz] .note-summary {background:var(--bg-color-secondary);border-color:var(--line)}
 [data-theme=topaz] .note-section :is(pre,code) {background:var(--bg-color-code)}
 [data-theme=topaz] :where(.app-bar,.outline-pane,.library) :is(h1,h2) {border:0;margin:0;padding:0;color:var(--ink)}
 [data-theme=topaz] .note-section .katex {color:var(--ink)}
