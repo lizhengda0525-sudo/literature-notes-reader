@@ -8,6 +8,9 @@ const verification = {reviewed: "用户已核对", partial: "部分核对", unre
 const scroll = $("note-scroll");
 let noticeTimer, positionTimer, scrollFrame, catalogRequest = 0;
 let sectionNodes = [], activeSection = null;
+let drawer = null, anchorFrame, panelTimer;
+const systemDark = matchMedia("(prefers-color-scheme: dark)");
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 function notice(value) {
   $("notice").textContent = value?.message || String(value);
   $("notice").hidden = false;
@@ -42,10 +45,75 @@ function renderMarkdown(source) {
   }
   return template.innerHTML;
 }
-function mobileLibrary(open) {
-  document.body.classList.toggle("library-open", open);
-  $("library-toggle").setAttribute("aria-expanded", String(open));
-  if (open) $("library-search").focus();
+function floating(side) {
+  if (state.ui.focus || state.mode === "edit") return true;
+  if (side === "outline") return innerWidth < 1060;
+  return innerWidth <= 720 || (innerWidth < 1160 && document.body.classList.contains("has-reference"));
+}
+
+function updatePanels() {
+  const body = document.body, reading = state.view === "reading";
+  const compare = body.classList.contains("has-reference");
+  for (const side of ["library", "outline"]) {
+    const allowed = reading && (side === "library" || (state.mode === "read" && !!state.paper));
+    const floats = floating(side), displaced = side === "outline" && compare;
+    if (drawer === side && (!allowed || !floats || displaced)) drawer = null;
+    const layout = !allowed || displaced ? "closed" : floats ? (drawer === side ? "drawer" : "closed")
+      : state.ui[side + "_visible"] === false ? "closed" : "docked";
+    body.dataset[side + "Layout"] = layout;
+    const panel = $(side === "library" ? "library" : "outline-pane"), toggle = $(side + "-toggle");
+    panel.inert = layout === "closed";
+    panel.setAttribute("aria-hidden", String(panel.inert));
+    toggle.setAttribute("aria-expanded", String(!panel.inert));
+    const label = (panel.inert ? "展开" : "收起") + (side === "library" ? "论文库" : "本篇目录");
+    toggle.title = label;
+    toggle.setAttribute("aria-label", label);
+    toggle.disabled = !allowed;
+  }
+  $("panel-backdrop").hidden = !drawer;
+  scheduleLocation();
+}
+
+function closeDrawer(restoreFocus = false) {
+  if (!drawer) return false;
+  const side = drawer;
+  drawer = null;
+  updatePanels();
+  if (restoreFocus) $(side + "-toggle").focus({preventScroll:true});
+  return true;
+}
+
+function setPanel(side, open) {
+  if (side === "outline" && open && document.body.classList.contains("has-reference")) $("close-reference").click();
+  cancelAnimationFrame(anchorFrame);
+  clearTimeout(panelTimer);
+  $("reading-view").classList.add("adjusting-panels");
+  panelTimer = setTimeout(() => $("reading-view").classList.remove("adjusting-panels"), 280);
+  const top = scroll.getBoundingClientRect().top;
+  const anchor = scroll.scrollTop > 12 && state.mode === "read" &&
+    [...$("note-content").querySelectorAll("h2,h3,p,li,tr")].find(node => {
+      const rect = node.getBoundingClientRect();
+      return rect.height && rect.bottom > top + 16;
+    });
+  const offset = anchor && anchor.getBoundingClientRect().top;
+  if (floating(side)) drawer = open ? side : null;
+  else {
+    drawer = null;
+    state.ui[side + "_visible"] = open;
+    window.readerDesktop?.persistUi();
+  }
+  updatePanels();
+  const until = performance.now() + (reducedMotion.matches ? 0 : 300);
+  function holdPosition() {
+    if (anchor?.isConnected) scroll.scrollTop += anchor.getBoundingClientRect().top - offset;
+    if (performance.now() < until) anchorFrame = requestAnimationFrame(holdPosition);
+  }
+  if (anchor) anchorFrame = requestAnimationFrame(holdPosition);
+}
+
+function revealLibrary() {
+  setPanel("library", true);
+  $("library-search").focus({preventScroll:true});
 }
 function renderLibrary() {
   const query = $("library-search").value.trim().toLocaleLowerCase();
@@ -75,7 +143,7 @@ function renderLibrary() {
     button.onclick = async () => {
       try {
         if (!selected && !await loadPaper(paper.id)) return;
-        mobileLibrary(false);
+        closeDrawer(true);
       } catch (error) { notice(error); }
     };
     list.append(button);
@@ -115,7 +183,6 @@ function trackLocation() {
   activeSection?.button.removeAttribute("aria-current");
   active?.button.setAttribute("aria-current", "location");
   activeSection = active;
-  $("outline-select").value = active?.card.id || "";
   if (active && $("outline").clientHeight) {
     const nav = $("outline");
     const item = active.button.getBoundingClientRect(), box = nav.getBoundingClientRect();
@@ -138,9 +205,9 @@ function setMode(mode) {
   $("mode-read").classList.toggle("active", mode === "read");
   $("mode-read").setAttribute("aria-pressed", String(mode === "read"));
   $("outline").hidden = mode !== "read";
-  $("outline-select").disabled = mode !== "read" || !state.paper;
   $("view-status").textContent = ({read: "精读笔记", edit: "编辑 Markdown"})[mode];
   if (previous !== mode && state.paper) scroll.scrollTop = mode === "read" ? positionFor(state.paper.id) : 0;
+  updatePanels();
   trackLocation();
 }
 function imageUrl(relative, paperId) {
@@ -197,7 +264,6 @@ function renderNotes() {
   const sections = splitNote(paper.note);
   $("note-content").replaceChildren();
   $("outline").replaceChildren();
-  $("outline-select").replaceChildren(new Option("本篇目录", ""));
   sectionNodes = [];
   activeSection = null;
   for (const section of sections) {
@@ -222,9 +288,8 @@ function renderNotes() {
     const button = document.createElement("button");
     button.className = "outline-link" + (section.level === 3 ? " sub" : "");
     button.textContent = title;
-    button.onclick = () => goToSection(card.id);
+    button.onclick = () => { closeDrawer(true); goToSection(card.id); };
     $("outline").append(button);
-    $("outline-select").append(new Option(title, section.id));
     $("note-content").append(card);
     sectionNodes.push({card, button});
   }
@@ -251,13 +316,6 @@ function renderHeading(paper) {
   $("show-details").setAttribute("aria-expanded", "false");
   $("note-path").textContent = "20_papers/" + paper.id + "/close-reading.md";
   $("note-path").title = paper.note_path;
-  const uri = paper.zotero.pdf || paper.zotero.item;
-  const link = $("zotero-link");
-  link.disabled = !uri;
-  link.title = uri ? "使用本机 Zotero 打开" : "这篇论文尚未关联 Zotero";
-  link.textContent = paper.zotero.pdf ? "Zotero 打开原文 ↗" : uri ? "Zotero 定位条目 ↗" : "Zotero 未关联";
-  $("zotero-status").hidden = !!uri;
-  $("zotero-status").textContent = "此篇尚未关联 Zotero 条目，可在 Zotero 中按题名查找。";
   $("open-note").disabled = false;
 }
 async function loadPaper(id) {
@@ -295,7 +353,6 @@ function clearPaper() {
   $("open-note").disabled = true;
   $("note-path").textContent = "";
   $("outline").replaceChildren();
-  $("outline-select").replaceChildren(new Option("本篇目录", ""));
   if ($("mode-edit")) $("mode-edit").disabled = true;
   if ($("editor-panel")) $("editor-panel").hidden = true;
   if ($("recovery-banner")) $("recovery-banner").hidden = true;
@@ -327,11 +384,16 @@ async function refresh() {
 }
 
 function settings() {
-  const theme = state.ui.theme === "light" ? "light" : "topaz";
+  const preference = ["light", "topaz"].includes(state.ui.theme) ? state.ui.theme : "system";
+  const theme = preference === "system" ? (systemDark.matches ? "topaz" : "light") : preference;
   document.documentElement.dataset.theme = theme;
   window.readerDesktop?.titleTheme?.(theme);
   $("topaz-theme").disabled = theme !== "topaz";
-  $("theme-setting").value = theme;
+  $("theme-setting").value = preference;
+  const tint = Math.max(0, Math.min(100, Number(state.ui.glass_tint ?? 55)));
+  document.documentElement.style.setProperty("--glass-opacity", (0.38 + tint * 0.0062).toFixed(2));
+  $("glass-tint").value = tint;
+  $("tint-value").value = tint + "%";
   const size = Math.max(13, Math.min(24, Number(state.ui.font_size) || 16));
   document.documentElement.style.setProperty("--note-font", size + "px");
   document.body.classList.toggle("reading-wide", state.ui.reading_width === "wide");
@@ -340,7 +402,7 @@ function settings() {
   $("font-value").value = size + " px";
   $("width-setting").value = state.ui.reading_width || "normal";
   $("focus-reading").setAttribute("aria-pressed", String(!!state.ui.focus));
-  scheduleLocation();
+  updatePanels();
 }
 function saveSettings() {
   settings();
@@ -358,38 +420,50 @@ $("reset-filters").onclick = () => {
   renderLibrary();
   $("library-search").focus();
 };
-$("library-toggle").onclick = () => mobileLibrary(true);
-$("library-back").onclick = () => { mobileLibrary(false); $("library-toggle").focus(); };
+for (const side of ["library", "outline"]) {
+  $(side + "-toggle").onclick = event => {
+    const open = event.currentTarget.getAttribute("aria-expanded") !== "true";
+    setPanel(side, open);
+    if (open && drawer) {
+      const target = side === "library" ? $("library-search") : $("outline").querySelector("[aria-current],button");
+      target?.focus({preventScroll:true});
+    }
+  };
+}
+$("panel-backdrop").onclick = () => closeDrawer(true);
 $("refresh").onclick = () => refresh().catch(notice);
 $("mode-read").onclick = () => setMode("read");
-$("outline-select").onchange = event => goToSection(event.target.value);
 $("show-details").onclick = event => {
   const panel = $("paper-meta");
   panel.hidden = !panel.hidden;
   event.currentTarget.setAttribute("aria-expanded", String(!panel.hidden));
 };
-$("focus-reading").onclick = () => { state.ui.focus = !state.ui.focus; mobileLibrary(false); saveSettings(); };
+$("focus-reading").onclick = () => { drawer = null; state.ui.focus = !state.ui.focus; saveSettings(); };
 $("reading-settings").onclick = () => $("settings-dialog").showModal();
 $("close-settings").onclick = () => $("settings-dialog").close();
 $("theme-setting").onchange = event => { state.ui.theme = event.target.value; saveSettings(); };
+$("glass-tint").oninput = event => { state.ui.glass_tint = Number(event.target.value); saveSettings(); };
 $("font-size").oninput = event => { state.ui.font_size = Number(event.target.value); saveSettings(); };
 $("width-setting").onchange = event => { state.ui.reading_width = event.target.value; saveSettings(); };
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && document.body.classList.contains("library-open")) $("library-back").click();
+  if (event.key === "Escape" && !document.querySelector("dialog[open]") && closeDrawer(true)) {
+    event.preventDefault();
+    return;
+  }
   if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey || document.querySelector("dialog[open]") || event.target.closest("input,textarea,select,[contenteditable=true]")) return;
   if (state.view === "resources") { event.preventDefault(); $("resource-search").focus(); return; }
   if (state.view !== "reading") return;
   event.preventDefault();
-  if (state.ui.focus) { state.ui.focus = false; saveSettings(); }
-  if (matchMedia("(max-width:720px)").matches) mobileLibrary(true);
-  $("library-search").focus();
+  revealLibrary();
 });
 scroll.addEventListener("scroll", () => {
   scheduleLocation();
   clearTimeout(positionTimer);
   positionTimer = setTimeout(rememberPosition, 120);
 }, {passive:true});
-addEventListener("resize", scheduleLocation);
+for (const event of ["wheel","touchstart","pointerdown","keydown"]) scroll.addEventListener(event, () => cancelAnimationFrame(anchorFrame), {passive:true});
+addEventListener("resize", updatePanels);
+systemDark.addEventListener("change", settings);
 addEventListener("beforeunload", rememberPosition);
 
-export {state, loadPaper, refresh, setMode, renderMarkdown, renderNotes, imageUrl, notice, rememberPosition, settings, renderLibrary, mobileLibrary, labels};
+export {state, loadPaper, refresh, setMode, renderMarkdown, renderNotes, imageUrl, notice, rememberPosition, settings, renderLibrary, closeDrawer, revealLibrary, updatePanels, labels};

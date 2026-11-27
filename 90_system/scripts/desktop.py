@@ -16,7 +16,8 @@ import webbrowser
 
 from desktop_store import NoteStore, StateStore, VERSION
 from literature import WorkspaceError
-from reader import ReaderHandler, ReaderServer, launch_markdown, launch_zotero, note_summary, paper_detail
+from reader import ReaderHandler, ReaderServer, launch_markdown, launch_zotero, note_summary, paper_detail, zotero_links
+from zotero_library import ZoteroLibrary, bind_item, resolve_paper
 
 APP_NAME = "精读笔记库"
 RESOURCE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
@@ -48,6 +49,7 @@ class DesktopAPI:
         self._close_pending = threading.Lock()
         self._close_approved = threading.Event()
         self._generation = 0
+        self._zotero = ZoteroLibrary()
         candidate = root or state.data.get("last_project")
         if candidate:
             try:
@@ -168,7 +170,8 @@ class DesktopAPI:
         if not isinstance(value, dict) or len(json.dumps(value)) > 65536:
             raise WorkspaceError("界面设置无效。")
         # No arbitrary configuration or credentials accepted by this interface.
-        filtered = {key: value[key] for key in ("last_paper", "positions", "font_size", "reading_width", "focus", "theme")
+        filtered = {key: value[key] for key in ("last_paper", "positions", "font_size", "reading_width", "focus", "theme",
+                                                 "library_visible", "outline_visible", "glass_tint")
                     if key in value}
         key = self._state.key(notes.root, "ui")
         self._state.data.setdefault("projects", {})[key] = filtered
@@ -207,7 +210,7 @@ class DesktopAPI:
         # Older Windows 10 builds use 19. Caption color is available on Windows 11.
         if DwmSetWindowAttribute(handle, 20, dark) != 0:
             DwmSetWindowAttribute(handle, 19, dark)
-        color = 0x493B34 if dark else 0xEFF5F4  # COLORREF for the navigation bar's surface.
+        color = 0x29241D if dark else 0xF4F4ED  # COLORREF for the workspace canvas.
         DwmSetWindowAttribute(handle, 35, color)
         return {"ok": True}
 
@@ -216,6 +219,32 @@ class DesktopAPI:
         notes = self._project(project)
         launch_zotero(notes.workspace.paper(pid))
         return {"ok": True}
+
+    @guarded
+    def resolve_zotero(self, project, pid):
+        notes = self._project(project)
+        before = notes.path(pid).with_name("paper.json").stat()
+        meta, status = resolve_paper(notes.workspace, pid, self._zotero)
+        return {"ok": True, "status": status, "zotero": zotero_links(meta),
+                **notes.link_signatures(pid, before)}
+
+    @guarded
+    def search_zotero(self, project, pid, query=""):
+        meta = self._project(project).workspace.paper(pid)
+        if not isinstance(query, str) or len(query) > 512:
+            raise WorkspaceError("请输入 512 个字符以内的题名、作者或 DOI。")
+        self._zotero.refresh(force=True)
+        matches = self._zotero.search(meta, query)
+        return {"ok": True, "candidates": matches["candidates"], "total": matches["total"],
+                "revision": matches["revision"], "current": matches["current"],
+                "attachment": meta.get("zotero_attachment_key"), "attachment_mode": meta.get("zotero_attachment_mode")}
+
+    @guarded
+    def bind_zotero(self, project, pid, ref, attachment, mode, revision):
+        notes = self._project(project)
+        before = notes.path(pid).with_name("paper.json").stat()
+        meta = bind_item(notes.workspace, pid, self._zotero, ref, attachment, mode, revision)
+        return {"ok": True, "zotero": zotero_links(meta), **notes.link_signatures(pid, before)}
 
     @guarded
     def open_link(self, url):
@@ -338,7 +367,7 @@ def main():
             report["pdf_import"] = True
             report["required_assets"] = all((ASSETS / name).is_file() for name in (
                 "index.html", "reader.mjs", "mapping.mjs", "reader.css", "study.mjs", "study.css",
-                "desktop-ui.mjs", "desktop.css", "theme.css", "vendor/blue-topaz/theme.css", "vendor/katex/katex.min.js",
+                "desktop-ui.mjs", "desktop.css", "theme.css", "zotero.mjs", "workspace.css", "vendor/blue-topaz/theme.css", "vendor/katex/katex.min.js",
                 "vendor/dompurify/purify.min.js", "vendor/marked/marked.esm.js"))
         except Exception as error:
             report["error"] = type(error).__name__ + ": " + str(error)

@@ -13,7 +13,7 @@ import threading
 
 from literature import Workspace, WorkspaceError, temporary_path
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 MAX_NOTE = 2 * 1024 * 1024
 MAX_IMAGE = 8 * 1024 * 1024
 
@@ -224,7 +224,7 @@ class NoteStore:
             raise WorkspaceError("论文编号无效。")
         self.state.recovery(self.root, pid, {"text": text, "base_hash": base_hash})
 
-    def signature(self):
+    def _signature_rows(self):
         if not self.root.is_dir():
             raise OSError("项目目录暂时无法访问，请重新连接项目盘。")
         questions = (self.workspace.project / "questions.md").stat()
@@ -236,4 +236,19 @@ class NoteStore:
                     continue
                 stat = path.stat()
                 result.append([pid, name, stat.st_mtime_ns, stat.st_size])
-        return fingerprint(json.dumps(result).encode("utf-8"))
+        return result
+
+    def signature(self):
+        return fingerprint(json.dumps(self._signature_rows()).encode("utf-8"))
+
+    def link_signatures(self, pid, old_stat):
+        # A link edit can be acknowledged locally only if all the other watched files
+        # still match the UI's last snapshot, including an externally edited note.
+        rows = self._signature_rows()
+        row = next(r for r in rows if r[:2] == [pid, "paper.json"])
+        old = [old_stat.st_mtime_ns, old_stat.st_size]
+        if row[2:] == old:
+            return {}
+        current = fingerprint(json.dumps(rows).encode("utf-8"))
+        row[2:] = old
+        return {"previous_signature": fingerprint(json.dumps(rows).encode("utf-8")), "signature": current}

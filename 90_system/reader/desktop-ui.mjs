@@ -1,5 +1,6 @@
 import {state,loadPaper,refresh,setMode,renderMarkdown,renderNotes,imageUrl,notice,rememberPosition,settings} from './reader.mjs';
 import {initStudyViews} from './study.mjs';
+import {initZotero} from './zotero.mjs';
 
 const $=id=>document.getElementById(id);
 const edit={base:'',original:'',dirty:false,project:null,loading:false,saving:false,importing:false,ignoreGuard:false};
@@ -153,9 +154,12 @@ function buildUi(){
 function bindEditor(){
   buildUi();
   study=initStudyViews(()=>showMode('read'));
+  const zotero=initZotero(call,()=>edit.project,data=>{
+    if(data.previous_signature && lastSignature===data.previous_signature)lastSignature=data.signature;
+  });
   window.readerDesktop={beforeNavigate,persistUi,snapshot,
-    loaded:async paper=>{await loaded(paper);study.paperChanged();},
-    catalogChanged:study.catalogChanged,paperChanged:study.paperChanged,
+    loaded:async paper=>{await loaded(paper);study.paperChanged();zotero.paperChanged(paper);},
+    catalogChanged:study.catalogChanged,paperChanged:()=>{study.paperChanged();zotero.paperChanged(state.paper);},
     titleTheme:theme=>{
       if(theme===titleTheme||typeof api.set_title_theme!=='function')return;
       titleTheme=theme;call('set_title_theme',theme).catch(()=>{titleTheme=null;});
@@ -185,7 +189,6 @@ function bindEditor(){
   $('toggle-preview').onclick=()=>{const visible=$('edit-preview').hidden;$('edit-preview').hidden=!visible;$('editor-split').classList.toggle('has-preview',visible);$('toggle-preview').setAttribute('aria-pressed',String(visible));$('toggle-preview').textContent=visible?'收起预览':'显示预览';if(visible)preview();};
   $('refresh').onclick=async()=>{if(!(await beforeNavigate()))return;edit.ignoreGuard=true;try{await refresh();}catch(error){notice(error);}finally{edit.ignoreGuard=false;}};
   $('open-note').onclick=()=>call('open_note',edit.project,state.paper.id).then(()=>notice('已交给本地 Markdown 编辑器。')).catch(notice);
-  $('zotero-link').onclick=event=>{event.preventDefault();call('open_zotero',edit.project,state.paper.id).then(()=>notice('已请求 Zotero 打开。')).catch(notice);};
   $('close-conflict').onclick=()=>$('conflict-dialog').close();$('close-validation').onclick=()=>$('validation-dialog').close();$('close-image').onclick=()=>$('image-dialog').close();
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();save();}});
   document.addEventListener('click',event=>{

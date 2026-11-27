@@ -1,36 +1,18 @@
-/* Reader controls use the palette of the locally bundled Typora theme. */
+/* Keep the original Blue Topaz text, code and math styling within the paper. */
 [data-theme=topaz] {
   color-scheme: dark;
-  --paper: var(--bg-color-primary);
-  --ink: var(--text-color-primary);
-  --muted: var(--text-color-muted);
-  --line: var(--border-color);
-  --green: var(--accent-cyan);
-  --amber: var(--accent-yellow);
   --serif: var(--font-family-heading);
   --mono: var(--font-family-mono);
 }
-[data-theme=topaz] :is(.app-bar,.note-toolbar,.outline-pane,.note-pane footer,.editor-tools,#desktop-banner,#recovery-banner,.note-summary,.segmented,.note-section th) {
-  background:var(--bg-color-secondary);color:var(--ink);border-color:var(--line);
+[data-theme=topaz] :where(button,select,input,textarea) {
+  background:var(--surface);color:var(--ink);border-color:var(--line);
 }
-[data-theme=topaz] :is(button,select,input,.conflict-columns textarea,.library,.note-section pre,.note-section code,#edit-preview,#note-editor) {
-  background:var(--paper);color:var(--ink);border-color:var(--line);
-}
-[data-theme=topaz] :is(#paper-title,#paper-byline,.paper-kicker,.outline-link,#scroll-percent,.library-foot,#project-name) {color:var(--ink)}
 [data-theme=topaz] .note-section {color:var(--ink);font-family:var(--font-family-sans)}
-[data-theme=topaz] .note-section h2 {color:var(--accent-orange)}
-[data-theme=topaz] .note-section h3 {color:var(--accent-yellow)}
-[data-theme=topaz] :is(.app-bar,.outline-pane,.library) :is(h1,h2) {border:0;margin:0;padding:0;color:var(--ink)}
-[data-theme=topaz] :is(.paper-card.active,.segmented .active,.outline-link[aria-current=location],button:hover,#zotero-link:hover) {background:var(--bg-color-tertiary);color:var(--ink)}
-[data-theme=topaz] :is(#save-status,#paper-edition) {color:var(--accent-yellow)}
-[data-theme=topaz] :is(#zotero-link,#save-note:not(:disabled)) {background:var(--accent-cyan);color:var(--bg-color-code);border-color:var(--accent-cyan)}
-[data-theme=topaz] #save-note:disabled {background:var(--bg-color-tertiary);color:var(--muted)}
-[data-theme=topaz] :is(.library,.book-mark,.search-field) {background:var(--bg-color-secondary)}
+[data-theme=topaz] .note-section :is(pre,code) {background:var(--bg-color-code)}
+[data-theme=topaz] :where(.app-bar,.outline-pane,.library) :is(h1,h2) {border:0;margin:0;padding:0;color:var(--ink)}
 [data-theme=topaz] .note-section .katex {color:var(--ink)}
+[data-theme=topaz] :is(#desktop-banner,#recovery-banner) {color:var(--ink);background:var(--surface);border-color:var(--line)}
 [data-theme=topaz] #desktop-banner[data-kind=warning] {background:var(--bg-color-secondary);color:var(--accent-yellow)}
-.editing-note main {grid-template-columns:minmax(0,1fr)}
-.editing-note .library,.editing-note .outline-pane,.editing-note #outline-select {display:none}
-.editing-note.library-open .library {display:flex}
 .editor-tools {justify-content:flex-start}
 .editor-tools #insert-image {margin-left:auto}
 #editor-split.has-preview {grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:minmax(0,1fr)}

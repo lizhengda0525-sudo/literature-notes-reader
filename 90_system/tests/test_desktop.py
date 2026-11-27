@@ -110,6 +110,17 @@ class DesktopTests(unittest.TestCase):
         self.path.write_text("# External changes\n", encoding="utf-8")
         self.assertNotEqual(first, self.notes.signature())
 
+    def test_link_refresh_does_not_hide_a_concurrent_external_edit(self):
+        path = self.path.with_name("paper.json")
+        before = path.stat()
+        initial = self.notes.signature()
+        path.write_bytes(path.read_bytes() + b" ")
+        self.assertEqual(self.notes.link_signatures(self.pid, before)["previous_signature"], initial)
+        self.path.write_text("# Externally updated", encoding="utf-8")
+        delta = self.notes.link_signatures(self.pid, before)
+        self.assertNotEqual(delta["previous_signature"], initial)
+        self.assertEqual(delta["signature"], self.notes.signature())
+
     def test_close_keeps_latest_draft_and_cancel_does_not_close(self):
         api = DesktopAPI(self.state, self.root)
         snapshot = {"dirty": True, "project": str(self.root), "pid": self.pid,

@@ -1,4 +1,4 @@
-import {state, loadPaper, imageUrl, notice, rememberPosition, renderLibrary, mobileLibrary, labels} from "./reader.mjs";
+import {state, loadPaper, imageUrl, notice, rememberPosition, renderLibrary, closeDrawer, revealLibrary, updatePanels, labels} from "./reader.mjs";
 
 const $ = id => document.getElementById(id);
 const types = {figure: "图", table: "表", equation: "公式"};
@@ -37,7 +37,8 @@ export function initStudyViews(showReadMode) {
     if (previous === "reading") rememberPosition();
     state.view = name;
     document.body.dataset.view = name;
-    mobileLibrary(false);
+    closeDrawer();
+    updatePanels();
     $("workspace-menu").open = false;
     for (const tab of tabs) {
       const active = tab.dataset.view === name;
@@ -72,14 +73,15 @@ export function initStudyViews(showReadMode) {
     }
     $("filter-panel").open = Boolean(field);
     renderLibrary();
-    if (matchMedia("(max-width:720px)").matches) mobileLibrary(true);
-    else (field ? $(field) : $("library-search")).focus();
+    revealLibrary();
+    if (field) $(field).focus();
   }
 
   function closeReference(restoreFocus = true) {
     selected = null;
     $("reference-pane").hidden = true;
     document.body.classList.remove("has-reference");
+    updatePanels();
     $("compare-resources").setAttribute("aria-expanded", "false");
     if (restoreFocus) {
       const target = returnFocus?.isConnected && returnFocus.offsetParent ? returnFocus : $("compare-resources");
@@ -123,6 +125,8 @@ export function initStudyViews(showReadMode) {
     $("compare-resources").setAttribute("aria-expanded", "true");
     $("reference-pane").hidden = false;
     document.body.classList.add("has-reference");
+    closeDrawer();
+    updatePanels();
     return true;
   }
 
@@ -330,7 +334,7 @@ export function initStudyViews(showReadMode) {
   $("reference-library").addEventListener("click", () => openLibrary({paper: state.paper.id}));
   document.addEventListener("keydown", event => {
     if (state.view !== "reading" || document.querySelector("dialog[open]") || $("workspace-menu").open) return;
-    if (event.key === "Escape" && selected && !document.body.classList.contains("library-open")) closeReference();
+    if (event.key === "Escape" && selected && !event.defaultPrevented) closeReference();
   });
   return {openReference, projectChanged, paperChanged, catalogChanged};
 }

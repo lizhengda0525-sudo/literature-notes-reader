@@ -63,13 +63,6 @@ body:not(.editing-note) #save-note,body:not(.editing-note) #save-status,.editing
 .note-section .resource-link:hover {text-decoration-style:solid}
 
 /* A reference and the current paragraph can stay visible together. */
-.has-reference #reading-view {
-  grid-template-columns:clamp(180px,15vw,245px) minmax(0,1fr) clamp(315px,29vw,520px);
-}
-.has-reference #reading-view .outline-pane {display:none}
-.has-reference #outline-select {display:block;max-width:140px}
-.has-reference.focus-mode #reading-view {grid-template-columns:minmax(0,1fr) clamp(315px,30vw,520px)}
-body.editing-note #reading-view {grid-template-columns:minmax(0,1fr)}
 .editing-note #reference-pane {display:none}
 #reference-pane {
   display:flex;flex-direction:column;min-height:0;min-width:0;padding:15px 17px 9px;overflow:hidden;
@@ -155,14 +148,6 @@ body.editing-note #reading-view {grid-template-columns:minmax(0,1fr)}
 #about-dialog p {color:var(--ink);font-family:var(--ui-font)}
 #image-dialog img {max-width:min(88vw,1900px);max-height:81vh;object-fit:contain}
 
-@media (min-width:721px) and (max-width:1200px) {
-  .has-reference #reading-view {grid-template-columns:minmax(0,1fr) clamp(284px,34vw,385px);position:relative}
-  .has-reference #reading-view .library {display:none}
-  .has-reference #library-toggle {display:inline-block}
-  .has-reference.library-open #reading-view .library {position:absolute;inset:0 auto 0 0;width:min(355px,70vw);z-index:3;display:flex;box-shadow:8px 0 23px #19253544}
-  .has-reference.library-open #library-back {display:block}
-  .has-reference #outline-select {max-width:115px}
-}
 @media (max-width:720px) {
   .app-bar {padding-inline:9px;gap:8px;height:43px;min-height:43px}
   .app-bar .brand {padding-right:9px;gap:6px}
@@ -171,7 +156,6 @@ body.editing-note #reading-view {grid-template-columns:minmax(0,1fr)}
   .app-bar .view-tabs button[aria-current=page]::after {inset-inline:8px}
   .app-bar .reader-tools {gap:0}
   .app-bar .reader-tools>button,.app-bar #workspace-menu>summary {padding-inline:6px}
-  .has-reference #reading-view,.has-reference.focus-mode #reading-view {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1.3fr) minmax(0,1fr)}
   #reference-pane {border-left:0;border-top:1px solid var(--line);padding:7px 12px;display:grid;
     grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);gap:6px 9px}
   .reference-top {margin:0;gap:5px}
@@ -183,7 +167,6 @@ body.editing-note #reading-view {grid-template-columns:minmax(0,1fr)}
   .reference-footer {grid-column:3;grid-row:1;padding:0;border:0;gap:4px}
   .reference-footer button {padding:2px 6px}
   #reference-library {font-size:11px}
-  .has-reference #outline-select {max-width:100px}
   .study-page {padding-inline:15px}.workbench-panels {gap:10px}
   .resource-filters {grid-template-columns:minmax(0,1fr) minmax(100px,.55fr)}
   #resource-search {grid-column:1 / -1}

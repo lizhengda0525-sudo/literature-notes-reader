@@ -66,7 +66,6 @@ main {flex:1;min-height:0;display:grid;grid-template-columns:clamp(206px,18vw,27
 .segmented .active {background:#fffefa;color:#173f32;box-shadow:0 1px 3px #16271b25;font-weight:600}
 .actions {gap:6px;margin-left:auto}
 .actions button {background:transparent}
-#library-toggle,#outline-select {display:none}
 .progress-track {height:2px;flex:none;background:#dfe4d9}
 #progress-fill {height:100%;background:var(--amber);transform:scaleX(0);transform-origin:left}
 #note-scroll {flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable;padding:clamp(23px,3vw,46px) clamp(20px,3.7vw,74px) 70px}
@@ -126,29 +125,14 @@ dialog h2 {margin:0;font-size:21px}
 #font-value {float:right;color:var(--muted);font:12px var(--mono)}
 .dialog-actions {display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 #notice {position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:4;background:#183c31;color:white;border-radius:6px;padding:12px 17px;font-size:13px;max-width:90vw}
-.focus-mode main {grid-template-columns:minmax(0,1fr)}
-.focus-mode .library,.focus-mode .outline-pane {display:none}
-.focus-mode #outline-select {display:block}
-#outline-select {max-width:200px;min-width:0}
-@media(max-width:1100px){
- main {grid-template-columns:220px minmax(0,1fr)}
- .outline-pane {display:none}
- #outline-select {display:block;max-width:145px}
-}
 @media(max-width:720px){
  .app-bar {min-height:52px;padding:7px 12px;gap:7px}.brand {gap:7px}.brand h1 {font-size:15px}.book-mark {width:29px;height:29px}
  .reader-tools {gap:4px}.reader-tools button {font-size:11px;padding:5px 6px}#reading-settings span {display:none}
- main {position:relative;grid-template-columns:minmax(0,1fr)}
- .library {display:none;position:absolute;inset:0;z-index:2}.library-open .library {display:flex}
- .library-open .library-head::after {content:none}.library-open .note-pane {visibility:hidden}
- #library-toggle {display:block}
  .note-toolbar {padding:7px 9px;gap:5px}.segmented button {padding:5px 7px}
- #outline-select {max-width:114px;font-size:11px}.note-toolbar .actions {flex-wrap:wrap}
+ .note-toolbar .actions {flex-wrap:wrap}
  #note-scroll {padding:20px 17px 55px}.note-section {line-height:1.83}.note-summary {padding:13px 14px}
  .note-pane footer {padding:6px 10px}#view-status {display:none}
  #paper-title {font-size:37px}#refresh span {display:none}
 }
-#library-back {display:none}
-@media(max-width:720px){#library-back {display:inline-block;margin:0 0 0 6px}}
 @media(max-width:420px){.reader-tools {gap:3px}.app-bar {column-gap:3px}.note-toolbar .actions {margin-left:0}.workspace-tools:empty {display:none}.library-head {padding-top:15px}}
 
